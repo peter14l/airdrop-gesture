@@ -52,6 +52,8 @@ class _RenderSliverFixedExtentCarousel
     required this._infinite,
   });
 
+  SliverLayoutDimensions get layoutDimensions => _currentLayoutDimensions;
+
   double get maxExtent => _maxExtent;
   double _maxExtent;
 

@@ -66,7 +66,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Restore Packages
-        run: dotnet restore windows_app/windows_app.csproj /p:RuntimeIdentifier=win-x64
+        run: msbuild windows_app/windows_app.csproj -t:restore /p:RuntimeIdentifier=win-x64 /p:Configuration=Release
 
       - name: Decode Windows Signing Certificate
         shell: pwsh

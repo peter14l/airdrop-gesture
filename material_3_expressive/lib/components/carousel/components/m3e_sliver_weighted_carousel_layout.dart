@@ -19,6 +19,9 @@ mixin _M3EWeightedCarouselLayoutMixin on RenderSliverFixedExtentBoxAdaptor {
   bool get infinite;
   set infinite(bool value);
 
+  // Getter to match layoutDimensions from RenderSliverFixedExtentBoxAdaptor internals in Flutter 3.41.9
+  SliverLayoutDimensions get layoutDimensions => _currentLayoutDimensions;
+
   // This is to implement the itemExtentBuilder callback to return each item extent
   // while scrolling.
   //
