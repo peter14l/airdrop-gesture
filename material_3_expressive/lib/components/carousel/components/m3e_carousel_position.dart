@@ -14,11 +14,14 @@ class _CarouselPosition extends ScrollPositionWithSingleContext
     this.initialItem = 0,
     double? itemExtent,
     List<int>? flexWeights,
-    this._consumeMaxWeight = true,
-    this._infinite = false,
-    this._itemCount,
+    bool consumeMaxWeight = true,
+    bool infinite = false,
+    int? itemCount,
     super.oldPosition,
-  }) : assert(
+  }) : _consumeMaxWeight = consumeMaxWeight,
+       _infinite = infinite,
+       _itemCount = itemCount,
+       assert(
          flexWeights != null && itemExtent == null ||
              flexWeights == null && itemExtent != null,
          'Exactly one of flexWeights or itemExtent must be non-null',

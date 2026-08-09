@@ -53,11 +53,14 @@ class _RenderSliverWeightedCarousel extends RenderSliverFixedExtentBoxAdaptor
     with _M3EWeightedCarouselLayoutMixin {
   _RenderSliverWeightedCarousel({
     required super.childManager,
-    required this._consumeMaxWeight,
-    required this._shrinkExtent,
-    required this._weights,
-    required this._infinite,
-  });
+    required bool consumeMaxWeight,
+    required double shrinkExtent,
+    required List<int> weights,
+    required bool infinite,
+  })  : _consumeMaxWeight = consumeMaxWeight,
+        _shrinkExtent = shrinkExtent,
+        _weights = weights,
+        _infinite = infinite;
 
   @override
   bool get consumeMaxWeight => _consumeMaxWeight;
