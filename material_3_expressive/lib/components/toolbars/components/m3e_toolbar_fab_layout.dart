@@ -61,10 +61,12 @@ class RenderM3EToolbarHorizontalFabLayout extends RenderBox
         > {
   /// Creates a horizontal FAB + toolbar layout render object.
   RenderM3EToolbarHorizontalFabLayout({
-    required this._progress,
-    required this._fabPosition,
-    required this._isRtl,
-  });
+    required double progress,
+    required M3EToolbarFabPosition fabPosition,
+    required bool isRtl,
+  })  : _progress = progress,
+        _fabPosition = fabPosition,
+        _isRtl = isRtl;
 
   double _progress;
   M3EToolbarFabPosition _fabPosition;
@@ -312,9 +314,10 @@ class RenderM3EToolbarVerticalFabLayout extends RenderBox
         > {
   /// Creates a vertical FAB + toolbar layout render object.
   RenderM3EToolbarVerticalFabLayout({
-    required this._progress,
-    required this._fabPosition,
-  });
+    required double progress,
+    required M3EToolbarFabPosition fabPosition,
+  })  : _progress = progress,
+        _fabPosition = fabPosition;
 
   double _progress;
   M3EToolbarFabPosition _fabPosition;

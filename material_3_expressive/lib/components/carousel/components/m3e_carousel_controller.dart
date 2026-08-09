@@ -153,8 +153,6 @@ class M3ECarouselController extends ScrollController {
       context: context,
       initialItem: initialItem,
       itemExtent: _carouselState!._itemExtent,
-      consumeMaxWeight: _carouselState!._consumeMaxWeight,
-      flexWeights: _carouselState!._flexWeights,
       infinite: _carouselState!.widget.infinite,
       itemCount: _getItemCount(),
       oldPosition: oldPosition,
