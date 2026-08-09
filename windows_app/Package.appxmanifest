@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -10,7 +10,7 @@
 
   <Identity
     Name="4E57EB97-A660-4BA4-ABBF-1E3E7C115113"
-    Publisher="CN=AppPublisher"
+    Publisher="CN=AirDropGesture"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="4E57EB97-A660-4BA4-ABBF-1E3E7C115113" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>

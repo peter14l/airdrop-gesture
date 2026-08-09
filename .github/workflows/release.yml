@@ -68,15 +68,20 @@ jobs:
       - name: Restore Packages
         run: dotnet restore windows_app/windows_app.csproj
 
-      - name: Build Windows App
+      - name: Decode Windows Signing Certificate
+        shell: pwsh
         run: |
-          dotnet build windows_app/windows_app.csproj -c Release /p:Platform=x64
+          [System.IO.File]::WriteAllBytes("windows_app/windows-release.pfx", [System.Convert]::FromBase64String("${{ secrets.WINDOWS_PFX_BASE64 }}"))
+
+      - name: Build Windows App (MSIX Package)
+        run: |
+          msbuild windows_app/windows_app.csproj /p:Configuration=Release /p:Platform=x64 /p:GenerateAppxPackageOnBuild=true /p:AppxPackageSigningEnabled=true /p:PackageCertificateKeyFile="windows-release.pfx" /p:PackageCertificatePassword="${{ secrets.WINDOWS_PFX_PASSWORD }}" /p:UapAppxPackageBuildMode=Sideloading
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-app
-          path: windows_app/bin/x64/Release/net10.0-windows10.0.26100.0/win-x64/
+          path: windows_app/AppPackages/windows_app_1.0.0.0_x64_Test/windows_app_1.0.0.0_x64.msix
 
   create-release:
     needs: [build-android, build-windows]
@@ -95,12 +100,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: windows-app
-          path: artifacts/windows/
-
-      - name: Zip Windows Release
-        run: |
-          cd artifacts/windows && zip -r ../../windows-release.zip .
-          cd ../../
+          path: artifacts/
 
       - name: Release
         uses: softprops/action-gh-release@v2
@@ -108,7 +108,7 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           files: |
             artifacts/app-release.apk
-            windows-release.zip
+            artifacts/windows_app_1.0.0.0_x64.msix
           draft: false
           prerelease: false
           generate_release_notes: true
