@@ -11,6 +11,8 @@
     <PlatformTarget>x64</PlatformTarget>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
+    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
+    <PackageCertificateKeyFile>windows-release.pfx</PackageCertificateKeyFile>
   </PropertyGroup>
 
   <ItemGroup>
