@@ -1,0 +1,107 @@
+name: Build and Release CI
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: 'stable'
+
+      - name: Install Dependencies
+        run: |
+          cd android_app
+          flutter pub get
+
+      - name: Build APK
+        run: |
+          cd android_app
+          flutter build apk --release
+
+      - name: Upload Android Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-apk
+          path: android_app/build/app/outputs/flutter-apk/app-release.apk
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
+
+      - name: Restore Packages
+        run: dotnet restore windows_app/windows_app.csproj
+
+      - name: Build Windows App
+        run: |
+          dotnet build windows_app/windows_app.csproj -c Release /p:Platform=x64
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-app
+          path: windows_app/bin/x64/Release/net10.0-windows10.0.26100.0/win-x64/
+
+  create-release:
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Download Android Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: android-apk
+          path: artifacts/
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: windows-app
+          path: artifacts/windows/
+
+      - name: Zip Windows Release
+        run: |
+          cd artifacts/windows && zip -r ../../windows-release.zip .
+          cd ../../
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/app-release.apk
+            windows-release.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

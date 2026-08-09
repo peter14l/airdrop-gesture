@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="windows_app.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:windows_app"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Padding="24" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Spacing="8">
+            <TextBlock Text="AirDrop Gesture Desktop Service" Style="{StaticResource TitleTextBlockStyle}" FontWeight="Bold" />
+            <TextBlock Text="Status: Active and Listening on ws://0.0.0.0:8080" Foreground="{ThemeResource SystemControlPageTextBaseMediumBrush}" />
+        </StackPanel>
+
+        <!-- Status Details -->
+        <Border Grid.Row="1" Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}" CornerRadius="8" Padding="16">
+            <StackPanel Spacing="8">
+                <TextBlock Text="Zero-Config Auto-Pairing Active" FontWeight="SemiBold" />
+                <TextBlock Text="Discovery service broadcasts local IP via mDNS. Connect from the Android app to synchronize clipboards instantly." TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Log Panel -->
+        <Grid Grid.Row="2" RowSpacing="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Activity Logs" FontWeight="SemiBold" />
+            <ScrollViewer Grid.Row="1" x:Name="LogScrollViewer" Background="{ThemeResource SystemControlBackgroundAltHighBrush}" CornerRadius="4" BorderThickness="1" BorderBrush="{ThemeResource SystemControlPageTextBaseLowBrush}">
+                <TextBox x:Name="LogTextBox" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" BorderThickness="0" FontFamily="Consolas" Padding="8" />
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Page>
