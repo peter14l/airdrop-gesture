@@ -39,7 +39,7 @@ dependencies:
   flutter_foreground_task: ^10.0.0
   material_3_expressive:
     path: ../material_3_expressive
-  dynamic_color: ^1.8.0
+  dynamic_color: 1.8.1
 
 dev_dependencies:
   flutter_test:
