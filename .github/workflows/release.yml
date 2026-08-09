@@ -75,7 +75,7 @@ jobs:
 
       - name: Build Windows App (MSIX Package)
         run: |
-          msbuild windows_app/windows_app.csproj /p:Configuration=Release /p:Platform=x64 /p:GenerateAppxPackageOnBuild=true /p:AppxPackageSigningEnabled=true /p:PackageCertificateKeyFile="windows-release.pfx" /p:PackageCertificatePassword="${{ secrets.WINDOWS_PFX_PASSWORD }}" /p:UapAppxPackageBuildMode=Sideloading
+          msbuild windows_app/windows_app.csproj /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=true /p:AppxPackageSigningEnabled=true /p:PackageCertificateKeyFile="windows-release.pfx" /p:PackageCertificatePassword="${{ secrets.WINDOWS_PFX_PASSWORD }}" /p:UapAppxPackageBuildMode=Sideloading
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
