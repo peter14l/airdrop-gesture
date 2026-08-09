@@ -517,7 +517,6 @@ class _CarouselViewState extends State<M3ECarouselView> {
           controller: _controller,
           physics: widget.physics ?? physics,
           clipBehavior: Clip.antiAlias,
-          scrollCacheExtent: const ScrollCacheExtent.viewport(0),
           slivers: <Widget>[_buildSliverCarousel(context)],
         );
       },

@@ -100,10 +100,10 @@ class _CarouselItemAnchor extends SingleChildRenderObjectWidget {
 
 class _RenderCarouselItemAnchor extends RenderProxyBox {
   _RenderCarouselItemAnchor({
-    required this._index,
+    required int index,
     required this.onRegister,
     required this.onUnregister,
-  });
+  }) : _index = index;
 
   int _index;
   void Function(int index, RenderBox box) onRegister;

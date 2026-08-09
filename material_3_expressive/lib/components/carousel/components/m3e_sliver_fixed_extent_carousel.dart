@@ -47,10 +47,12 @@ class _RenderSliverFixedExtentCarousel
     extends RenderSliverFixedExtentBoxAdaptor {
   _RenderSliverFixedExtentCarousel({
     required super.childManager,
-    required this._maxExtent,
-    required this._minExtent,
-    required this._infinite,
-  });
+    required double minExtent,
+    required double maxExtent,
+    required bool infinite,
+  })  : _minExtent = minExtent,
+        _maxExtent = maxExtent,
+        _infinite = infinite;
 
   SliverLayoutDimensions get layoutDimensions => SliverLayoutDimensions(
         scrollOffset: constraints.scrollOffset,
