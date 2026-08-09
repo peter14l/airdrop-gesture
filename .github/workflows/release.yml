@@ -81,7 +81,7 @@ jobs:
         shell: pwsh
         run: |
           $sdkPath = "C:\Program Files (x86)\Windows Kits\10\bin"
-          $signtool = (Get-ChildItem -Path $sdkPath -Filter signtool.exe -Recurse | Select-Object -First 1).FullName
+          $signtool = (Get-ChildItem -Path $sdkPath -Filter signtool.exe -Recurse | Where-Object { $_.FullName -notmatch "arm64" -and $_.FullName -match "x64" } | Select-Object -First 1).FullName
           if (-not $signtool) { throw "signtool.exe not found" }
           & $signtool sign /fd sha256 /a /f "windows_app/windows-release.pfx" /p "${{ secrets.WINDOWS_PFX_PASSWORD }}" "windows_app/AppPackages/windows_app_1.0.0.0_x64_Test/windows_app_1.0.0.0_x64.msix"
 
