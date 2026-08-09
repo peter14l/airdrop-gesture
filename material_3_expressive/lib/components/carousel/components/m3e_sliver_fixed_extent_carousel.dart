@@ -52,7 +52,12 @@ class _RenderSliverFixedExtentCarousel
     required this._infinite,
   });
 
-  SliverLayoutDimensions get layoutDimensions => _currentLayoutDimensions;
+  SliverLayoutDimensions get layoutDimensions => SliverLayoutDimensions(
+        scrollOffset: constraints.scrollOffset,
+        precedingScrollExtent: constraints.precedingScrollExtent,
+        viewportMainAxisExtent: constraints.viewportMainAxisExtent,
+        crossAxisExtent: constraints.crossAxisExtent,
+      );
 
   double get maxExtent => _maxExtent;
   double _maxExtent;

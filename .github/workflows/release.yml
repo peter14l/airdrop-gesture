@@ -73,10 +73,6 @@ jobs:
         run: |
           [System.IO.File]::WriteAllBytes("windows_app/windows-release.pfx", [System.Convert]::FromBase64String("${{ secrets.WINDOWS_PFX_BASE64 }}"))
 
-      - name: Import Certificate to Store
-        shell: pwsh
-        run: |
-          certutil -f -p "${{ secrets.WINDOWS_PFX_PASSWORD }}" -importpfx "windows_app/windows-release.pfx"
 
       - name: Build Windows App (MSIX Package)
         run: |
