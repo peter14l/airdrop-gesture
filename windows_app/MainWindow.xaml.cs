@@ -18,12 +18,21 @@ namespace windows_app
 
             AppWindow.SetIcon("Assets/AppIcon.ico");
 
+            // Assign Mica Alt system backdrop
+            SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop()
+            {
+                Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt
+            };
+
             // Setup minimize to tray behavior
             AppWindow.Closing += AppWindow_Closing;
 
             // Start WebSocket server
             _service = new WebSocketListenerService(LogMessage);
             _service.Start();
+
+            // Set Tray Double Click Command dynamically to resolve XAML compilation issues
+            MyNotifyIcon.DoubleClickCommand = new TrayCommand(() => ShowWindow());
 
             // Navigate root frame
             RootFrame.Navigate(typeof(MainPage));
@@ -70,5 +79,14 @@ namespace windows_app
         {
             AppWindow.Hide();
         }
+    }
+
+    public class TrayCommand : System.Windows.Input.ICommand
+    {
+        private readonly Action _execute;
+        public TrayCommand(Action execute) => _execute = execute;
+        public bool CanExecute(object? parameter) => true;
+        public void Execute(object? parameter) => _execute();
+        public event EventHandler? CanExecuteChanged;
     }
 }

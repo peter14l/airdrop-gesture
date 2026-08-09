@@ -10,7 +10,7 @@
     Title="AirDrop Gesture Control"
     mc:Ignorable="d">
     <Window.SystemBackdrop>
-        <MicaBackdrop Kind="MicaAlt" />
+        <MicaBackdrop />
     </Window.SystemBackdrop>
 
     <Grid>
@@ -22,15 +22,14 @@
         <tb:TaskbarIcon
             x:Name="MyNotifyIcon"
             IconSource="Assets/AppIcon.ico"
-            ToolTipText="AirDrop Gesture Service"
-            DoubleClick="MyNotifyIcon_DoubleClick">
-            <tb:TaskbarIcon.ContextMenu>
+            ToolTipText="AirDrop Gesture Service">
+            <tb:TaskbarIcon.ContextFlyout>
                 <MenuFlyout>
                     <MenuFlyoutItem Text="Restore" Click="MenuRestore_Click" />
                     <MenuFlyoutSeparator />
                     <MenuFlyoutItem Text="Exit" Click="MenuExit_Click" />
                 </MenuFlyout>
-            </tb:TaskbarIcon.ContextMenu>
+            </tb:TaskbarIcon.ContextFlyout>
         </tb:TaskbarIcon>
 
         <TitleBar x:Name="AppTitleBar" Title="AirDrop Gesture Control">
