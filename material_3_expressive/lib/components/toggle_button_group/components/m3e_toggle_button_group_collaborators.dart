@@ -146,7 +146,7 @@ class _ToggleGroupFocusManager {
 }
 
 class _ToggleGroupPressCoordinator {
-  _ToggleGroupPressCoordinator({required this._isMounted});
+  _ToggleGroupPressCoordinator({required bool Function() isMounted}) : _isMounted = isMounted;
 
   final bool Function() _isMounted;
 

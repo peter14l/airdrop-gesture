@@ -51,12 +51,16 @@ class M3ERenderButtonGroup extends RenderBox
         RenderBoxContainerDefaultsMixin<RenderBox, M3EButtonGroupParentData> {
   /// M3ERenderButtonGroup.
   M3ERenderButtonGroup({
-    required this._direction,
-    required this._spacing,
-    required this._pressedIndex,
-    required this._animValue,
-    required this._expandedRatio,
-  });
+    required Axis direction,
+    required double spacing,
+    required int? pressedIndex,
+    required double animValue,
+    required double expandedRatio,
+  })  : _direction = direction,
+        _spacing = spacing,
+        _pressedIndex = pressedIndex,
+        _animValue = animValue,
+        _expandedRatio = expandedRatio;
 
   Axis _direction;
 
