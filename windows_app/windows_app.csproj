@@ -12,7 +12,6 @@
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
     <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
-    <PackageCertificateKeyFile>windows-release.pfx</PackageCertificateKeyFile>
   </PropertyGroup>
 
   <ItemGroup>
