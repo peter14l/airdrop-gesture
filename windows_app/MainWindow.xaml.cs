@@ -13,16 +13,19 @@ namespace windows_app
         {
             InitializeComponent();
 
-            ExtendsContentIntoTitleBar = true;
-            SetTitleBar(AppTitleBar);
-
-            AppWindow.SetIcon("Assets/AppIcon.ico");
+            this.Activated += (s, e) =>
+            {
+                ExtendsContentIntoTitleBar = true;
+                SetTitleBar(AppTitleBar);
+                AppWindow.SetIcon("Assets/AppIcon.ico");
+            };
 
             // Assign Mica Alt system backdrop
             SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop()
             {
                 Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt
             };
+
 
             // Setup minimize to tray behavior
             AppWindow.Closing += AppWindow_Closing;

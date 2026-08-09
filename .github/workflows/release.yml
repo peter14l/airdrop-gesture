@@ -62,12 +62,6 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Restore Packages
-        run: msbuild windows_app/windows_app.csproj -t:restore /p:RuntimeIdentifier=win-x64 /p:Configuration=Release
-
       - name: Decode Windows Signing Certificate
         shell: pwsh
         run: |
@@ -78,14 +72,30 @@ jobs:
         run: |
           $pfxPath = "windows_app/windows-release.pfx"
           $password = ConvertTo-SecureString "${{ secrets.WINDOWS_PFX_PASSWORD }}" -AsPlainText -Force
-          Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          $cert = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
           Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\TrustedPeople -Password $password
           Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\LocalMachine\Root -Password $password
           Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\LocalMachine\TrustedPeople -Password $password
+          echo "CERT_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
 
       - name: Build Windows App (MSIX Package)
+        shell: pwsh
         run: |
-          msbuild windows_app/windows_app.csproj /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=true /p:AppxPackageSigningEnabled=true /p:PackageCertificateThumbprint="13C2E437C38C6E5AFE7DD4D96AAF60F70D0746F0" /p:UapAppxPackageBuildMode=Sideloading
+          dotnet build windows_app/windows_app.csproj `
+            -c Release `
+            -p:Platform=x64 `
+            -p:RuntimeIdentifier=win-x64 `
+            -p:GenerateAppxPackageOnBuild=true `
+            -p:AppxPackageSigningEnabled=false `
+            -p:UapAppxPackageBuildMode=Sideloading
+
+      - name: Sign MSIX Package
+        shell: pwsh
+        run: |
+          $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter "signtool.exe" |
+            Where-Object { $_.FullName -match "x64" } | Select-Object -Last 1
+          & $signtool.FullName sign /fd SHA256 /sha1 "$env:CERT_THUMBPRINT" `
+            "windows_app\AppPackages\windows_app_1.0.0.0_x64_Test\windows_app_1.0.0.0_x64.msix"
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
@@ -96,29 +106,34 @@ jobs:
   create-release:
     needs: [build-android, build-windows]
     runs-on: ubuntu-latest
+    # Run as long as at least one build job succeeded (not both cancelled)
+    if: always() && (needs.build-android.result == 'success' || needs.build-windows.result == 'success')
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Download Android Artifact
+        if: needs.build-android.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: android-apk
           path: artifacts/
 
       - name: Download Windows Artifact
+        if: needs.build-windows.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: windows-app
           path: artifacts/
 
+      - name: List available artifacts
+        run: ls -la artifacts/ || echo "No artifacts directory"
+
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          files: |
-            artifacts/app-release.apk
-            artifacts/windows_app_1.0.0.0_x64.msix
+          files: artifacts/*
           draft: false
           prerelease: false
           generate_release_notes: true

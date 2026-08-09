@@ -27,7 +27,7 @@ namespace windows_app
         {
             _cts = new CancellationTokenSource();
             _listener = new HttpListener();
-            _listener.Prefixes.Add($"http://*:{port}/");
+            _listener.Prefixes.Add($"http://localhost:{port}/");
             
             try
             {

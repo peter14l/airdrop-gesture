@@ -18,11 +18,11 @@
         <!-- Header -->
         <StackPanel Grid.Row="0" Spacing="8">
             <TextBlock Text="AirDrop Gesture Desktop Service" Style="{StaticResource TitleTextBlockStyle}" FontWeight="Bold" />
-            <TextBlock Text="Status: Active and Listening on ws://0.0.0.0:8080" Foreground="{ThemeResource SystemControlPageTextBaseMediumBrush}" />
+            <TextBlock Text="Status: Active and Listening on ws://0.0.0.0:8080" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </StackPanel>
 
         <!-- Status Details -->
-        <Border Grid.Row="1" Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}" CornerRadius="8" Padding="16">
+        <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Padding="16">
             <StackPanel Spacing="8">
                 <TextBlock Text="Zero-Config Auto-Pairing Active" FontWeight="SemiBold" />
                 <TextBlock Text="Discovery service broadcasts local IP via mDNS. Connect from the Android app to synchronize clipboards instantly." TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
@@ -37,7 +37,7 @@
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="Activity Logs" FontWeight="SemiBold" />
-            <ScrollViewer Grid.Row="1" x:Name="LogScrollViewer" Background="{ThemeResource SystemControlBackgroundAltHighBrush}" CornerRadius="4" BorderThickness="1" BorderBrush="{ThemeResource SystemControlPageTextBaseLowBrush}">
+            <ScrollViewer Grid.Row="1" x:Name="LogScrollViewer" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4" BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}">
                 <TextBox x:Name="LogTextBox" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" BorderThickness="0" FontFamily="Consolas" Padding="8" />
             </ScrollViewer>
         </Grid>
