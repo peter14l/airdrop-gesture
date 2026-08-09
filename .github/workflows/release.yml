@@ -79,6 +79,7 @@ jobs:
           $pfxPath = "windows_app/windows-release.pfx"
           $password = ConvertTo-SecureString "${{ secrets.WINDOWS_PFX_PASSWORD }}" -AsPlainText -Force
           Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\TrustedPeople -Password $password
 
       - name: Build Windows App (MSIX Package)
         run: |
