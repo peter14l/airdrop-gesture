@@ -187,15 +187,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Spring-motion Control Buttons
-            M3EButton(
-              style: M3EButtonStyle.filled,
+            FilledButton(
               onPressed: _toggleVisionPipeline,
               child: Text(_isPipelineActive ? "Stop Hand Camera" : "Arm Hand Camera"),
             ),
             const SizedBox(height: 8),
-            M3EButton(
-              style: M3EButtonStyle.outlined,
+            OutlinedButton(
               onPressed: _isConnected
                   ? () => _networkManager.sendPayload("text", "Manual clip: Hello from Android Flutter UI!")
                   : null,
