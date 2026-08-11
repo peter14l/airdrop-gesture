@@ -1,6 +1,5 @@
 package com.airdrop.gesture.android_app
 
-import android.content.Context
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -19,7 +18,8 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class GestureRecognizerHelper(
-    private val context: Context,
+    // Receive the Activity directly so CameraX has a valid LifecycleOwner
+    private val activity: MainActivity,
     private val methodChannel: MethodChannel
 ) {
     private var gestureRecognizer: GestureRecognizer? = null
@@ -62,7 +62,7 @@ class GestureRecognizerHelper(
                 .setErrorListener(this::onError)
                 .build()
 
-            gestureRecognizer = GestureRecognizer.createFromOptions(context, options)
+            gestureRecognizer = GestureRecognizer.createFromOptions(activity, options)
             Log.d(TAG, "MediaPipe Gesture Recognizer initialized successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize Gesture Recognizer: ${e.message}", e)
@@ -71,12 +71,11 @@ class GestureRecognizerHelper(
     }
 
     private fun startCamera() {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(activity)
         cameraProviderFuture.addListener({
             try {
                 cameraProvider = cameraProviderFuture.get()
 
-                // Use the front camera for hand gesture detection
                 val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
                 imageAnalysis = ImageAnalysis.Builder()
@@ -90,16 +89,17 @@ class GestureRecognizerHelper(
                     }
 
                 cameraProvider?.unbindAll()
+                // activity IS a LifecycleOwner — CameraX will follow its lifecycle
                 cameraProvider?.bindToLifecycle(
-                    context as LifecycleOwner,
+                    activity as LifecycleOwner,
                     cameraSelector,
                     imageAnalysis
                 )
-                Log.d(TAG, "CameraX started and bound to lifecycle.")
+                Log.d(TAG, "CameraX started and bound to activity lifecycle.")
             } catch (e: Exception) {
                 Log.e(TAG, "CameraX startup failed: ${e.message}", e)
             }
-        }, ContextCompat.getMainExecutor(context))
+        }, ContextCompat.getMainExecutor(activity))
     }
 
     private fun processImageProxy(imageProxy: ImageProxy) {
@@ -119,10 +119,8 @@ class GestureRecognizerHelper(
         }
     }
 
-    // Called by MainActivity legacy processFrame path — no-op now that CameraX feeds frames
-    fun processFrame(imageData: ByteArray, width: Int, height: Int, timestampMs: Long) {
-        // Frames are now supplied directly from CameraX via processImageProxy
-    }
+    // Legacy path — no-op now that CameraX feeds frames directly
+    fun processFrame(imageData: ByteArray, width: Int, height: Int, timestampMs: Long) {}
 
     private fun onResult(result: GestureRecognizerResult, image: com.google.mediapipe.framework.image.MPImage) {
         if (result.gestures().isNotEmpty()) {
@@ -140,8 +138,7 @@ class GestureRecognizerHelper(
     }
 
     private fun emitGesture(trigger: String) {
-        val handler = android.os.Handler(android.os.Looper.getMainLooper())
-        handler.post {
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
             methodChannel.invokeMethod(trigger, null)
         }
     }

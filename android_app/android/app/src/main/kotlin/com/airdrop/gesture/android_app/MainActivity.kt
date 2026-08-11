@@ -34,6 +34,7 @@ class MainActivity : FlutterActivity(), SensorEventListener {
 
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         methodChannel = channel
+        // Pass `this` (the Activity) — it implements LifecycleOwner, required by CameraX
         gestureHelper = GestureRecognizerHelper(this, channel)
 
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
