@@ -54,10 +54,10 @@ namespace windows_app
             catch (HttpListenerException ex) when (ex.ErrorCode == 5) // Access Denied
             {
                 // Fall back to localhost-only if wildcard registration fails
-                _listener.Prefixes.Clear();
+                _listener = new HttpListener();
                 _listener.Prefixes.Add($"http://localhost:{port}/");
                 _listener.Start();
-                _onLogReceived($"[Warning] Could not bind to all interfaces (run as admin or register URL ACL). Listening on localhost only.");
+                _onLogReceived($"[Warning] Could not bind to all interfaces. Listening on localhost only.");
                 Task.Run(() => ListenLoopAsync(_cts.Token));
             }
             catch (Exception ex)
