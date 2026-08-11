@@ -32,6 +32,9 @@ namespace windows_app
             InitializeComponent();
         }
 
+        private System.Collections.Generic.List<MediaFrameSourceGroup> _deviceList = new();
+        private bool _isInitializingCamera = false;
+
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
@@ -44,23 +47,87 @@ namespace windows_app
             _previewSource = new SoftwareBitmapSource();
             CameraPreviewImage.Source = _previewSource;
 
-            // Start webcam preview and tracking
-            await InitializeCameraAsync();
+            // Load and populate camera selector list
+            await PopulateCameraListAsync();
         }
 
-        private async Task InitializeCameraAsync()
+        private async Task PopulateCameraListAsync()
         {
             try
             {
-                var frameSourceGroups = await MediaFrameSourceGroup.FindAllAsync();
-                var selectedGroup = frameSourceGroups.FirstOrDefault(g => g.SourceInfos.Any(s => s.MediaStreamType == MediaStreamType.VideoPreview || s.MediaStreamType == MediaStreamType.VideoRecord));
+                var groups = await MediaFrameSourceGroup.FindAllAsync();
+                _deviceList = groups.Where(g => g.SourceInfos.Any(s => s.MediaStreamType == MediaStreamType.VideoPreview || s.MediaStreamType == MediaStreamType.VideoRecord)).ToList();
 
-                if (selectedGroup == null)
+                CameraSelectorComboBox.SelectionChanged -= CameraSelectorComboBox_SelectionChanged;
+                CameraSelectorComboBox.Items.Clear();
+
+                if (_deviceList.Count == 0)
                 {
-                    AddLogMessage("No webcam found on this device.");
+                    AddLogMessage("No webcams found on this system.");
                     CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
                     return;
                 }
+
+                foreach (var device in _deviceList)
+                {
+                    CameraSelectorComboBox.Items.Add(device.DisplayName);
+                }
+
+                CameraSelectorComboBox.SelectionChanged += CameraSelectorComboBox_SelectionChanged;
+
+                // Auto-select the first camera (which is normally the integrated one)
+                CameraSelectorComboBox.SelectedIndex = 0;
+            }
+            catch (Exception ex)
+            {
+                AddLogMessage($"Failed to query camera devices: {ex.Message}");
+            }
+        }
+
+        private async void CameraSelectorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            int index = CameraSelectorComboBox.SelectedIndex;
+            if (index >= 0 && index < _deviceList.Count)
+            {
+                await InitializeCameraAsync(_deviceList[index]);
+            }
+        }
+
+        private async Task CleanupCameraAsync()
+        {
+            if (_frameReader != null)
+            {
+                _frameReader.FrameArrived -= OnFrameArrived;
+                try
+                {
+                    await _frameReader.StopAsync();
+                }
+                catch { }
+                _frameReader.Dispose();
+                _frameReader = null;
+            }
+
+            if (_mediaCapture != null)
+            {
+                _mediaCapture.Dispose();
+                _mediaCapture = null;
+            }
+
+            CameraPreviewImage.Source = null;
+            _previewSource = new SoftwareBitmapSource();
+            CameraPreviewImage.Source = _previewSource;
+            _baselineBrightness = -1;
+        }
+
+        private async Task InitializeCameraAsync(MediaFrameSourceGroup selectedGroup)
+        {
+            if (_isInitializingCamera) return;
+            _isInitializingCamera = true;
+
+            try
+            {
+                CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                await CleanupCameraAsync();
 
                 _mediaCapture = new MediaCapture();
                 var settings = new MediaCaptureInitializationSettings
@@ -72,7 +139,7 @@ namespace windows_app
                 };
 
                 await _mediaCapture.InitializeAsync(settings);
-                AddLogMessage("Camera initialized successfully.");
+                AddLogMessage($"Initializing: {selectedGroup.DisplayName}");
 
                 // Find a suitable video preview source
                 var sourceInfo = selectedGroup.SourceInfos.FirstOrDefault(s => s.MediaStreamType == MediaStreamType.VideoPreview) 
@@ -81,19 +148,22 @@ namespace windows_app
                 if (sourceInfo != null)
                 {
                     var frameSource = _mediaCapture.FrameSources[sourceInfo.Id];
-                    // Request format compatibility for direct conversion
                     _frameReader = await _mediaCapture.CreateFrameReaderAsync(frameSource, MediaEncodingSubtypes.Bgra8);
                     _frameReader.FrameArrived += OnFrameArrived;
                     await _frameReader.StartAsync();
 
                     CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-                    AddLogMessage("Camera tracking started.");
+                    AddLogMessage($"Active Camera Source: {selectedGroup.DisplayName}");
                 }
             }
             catch (Exception ex)
             {
-                AddLogMessage($"Camera initialization failed: {ex.Message}");
+                AddLogMessage($"Failed to start camera {selectedGroup.DisplayName}: {ex.Message}");
                 CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+            }
+            finally
+            {
+                _isInitializingCamera = false;
             }
         }
 

@@ -57,11 +57,18 @@
         <!-- Right Side: Camera Preview / Gesture State -->
         <Grid Grid.Row="1" Grid.Column="1" RowSpacing="12">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" Padding="8">
+            <!-- Camera Selector -->
+            <StackPanel Grid.Row="0" Spacing="4">
+                <TextBlock Text="Webcam Source:" FontSize="12" FontWeight="SemiBold" />
+                <ComboBox x:Name="CameraSelectorComboBox" HorizontalAlignment="Stretch" SelectionChanged="CameraSelectorComboBox_SelectionChanged" PlaceholderText="Select Webcam" />
+            </StackPanel>
+
+            <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" Padding="8">
                 <Grid>
                     <!-- Fallback camera icon/text -->
                     <StackPanel x:Name="CameraFallbackPanel" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
@@ -75,7 +82,7 @@
             </Border>
 
             <!-- Gesture Alert Badge -->
-            <Border Grid.Row="1" x:Name="GestureStatusBadge" Background="{ThemeResource SystemFillColorNeutralBackgroundBrush}" CornerRadius="8" Padding="16">
+            <Border Grid.Row="2" x:Name="GestureStatusBadge" Background="{ThemeResource SystemFillColorNeutralBackgroundBrush}" CornerRadius="8" Padding="16">
                 <StackPanel HorizontalAlignment="Center" Spacing="4">
                     <TextBlock Text="Laptop Gesture Tracker" FontWeight="SemiBold" HorizontalAlignment="Center" />
                     <TextBlock x:Name="GestureStatusText" Text="Waiting for drop gesture..." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
