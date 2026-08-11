@@ -1,11 +1,14 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Makaretu.Dns;
 using Windows.ApplicationModel.DataTransfer;
 using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppNotifications.Builder;
@@ -18,21 +21,43 @@ namespace windows_app
         private CancellationTokenSource? _cts;
         private readonly Action<string> _onLogReceived;
 
+        private MulticastService? _mdns;
+        private ServiceDiscovery? _sd;
+        private ServiceProfile? _serviceProfile;
+
+        private const string MdnsServiceType = "_airdropgesture._tcp";
+        private const int Port = 8080;
+
         public WebSocketListenerService(Action<string> onLogReceived)
         {
             _onLogReceived = onLogReceived;
         }
 
-        public void Start(int port = 8080)
+        public void Start(int port = Port)
         {
             _cts = new CancellationTokenSource();
             _listener = new HttpListener();
-            _listener.Prefixes.Add($"http://localhost:{port}/");
-            
+
+            // Bind to all interfaces so Android on the same WiFi can connect.
+            // Requires the URL reservation: netsh http add urlacl url=http://+:8080/ user=Everyone
+            // For packaged apps with runFullTrust capability this is auto-granted.
+            _listener.Prefixes.Add($"http://+:{port}/");
+
             try
             {
                 _listener.Start();
-                _onLogReceived($"WebSocket Listener started on ws://0.0.0.0:{port}/");
+                var localIp = GetLocalIpAddress();
+                _onLogReceived($"WebSocket Listener started on ws://{localIp}:{port}/");
+                Task.Run(() => ListenLoopAsync(_cts.Token));
+                AdvertiseMdns(port);
+            }
+            catch (HttpListenerException ex) when (ex.ErrorCode == 5) // Access Denied
+            {
+                // Fall back to localhost-only if wildcard registration fails
+                _listener.Prefixes.Clear();
+                _listener.Prefixes.Add($"http://localhost:{port}/");
+                _listener.Start();
+                _onLogReceived($"[Warning] Could not bind to all interfaces (run as admin or register URL ACL). Listening on localhost only.");
                 Task.Run(() => ListenLoopAsync(_cts.Token));
             }
             catch (Exception ex)
@@ -46,7 +71,51 @@ namespace windows_app
             _cts?.Cancel();
             _listener?.Stop();
             _listener?.Close();
+
+            try
+            {
+                if (_serviceProfile != null) _sd?.Unadvertise(_serviceProfile);
+                _sd?.Dispose();
+                _mdns?.Stop();
+            }
+            catch { /* ignore cleanup errors */ }
+
             _onLogReceived("WebSocket Listener service stopped.");
+        }
+
+        private void AdvertiseMdns(int port)
+        {
+            try
+            {
+                _mdns = new MulticastService();
+                _sd = new ServiceDiscovery(_mdns);
+
+                _serviceProfile = new ServiceProfile("AirDropGesture", MdnsServiceType, (ushort)port);
+                _serviceProfile.AddProperty("version", "1");
+
+                _sd.Advertise(_serviceProfile);
+                _mdns.Start();
+                _onLogReceived($"mDNS: advertising {MdnsServiceType} on port {port}");
+            }
+            catch (Exception ex)
+            {
+                _onLogReceived($"mDNS advertisement failed: {ex.Message}");
+            }
+        }
+
+        private static string GetLocalIpAddress()
+        {
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus != OperationalStatus.Up) continue;
+                if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                foreach (var addr in ni.GetIPProperties().UnicastAddresses)
+                {
+                    if (addr.Address.AddressFamily == AddressFamily.InterNetwork)
+                        return addr.Address.ToString();
+                }
+            }
+            return "localhost";
         }
 
         private async Task ListenLoopAsync(CancellationToken token)
@@ -58,7 +127,7 @@ namespace windows_app
                     var context = await _listener!.GetContextAsync();
                     if (context.Request.IsWebSocketRequest)
                     {
-                        _onLogReceived("Incoming WebSocket connection request...");
+                        _onLogReceived($"Incoming WebSocket connection from {context.Request.RemoteEndPoint}...");
                         var wsContext = await context.AcceptWebSocketAsync(subProtocol: null);
                         _onLogReceived("WebSocket connection established!");
                         _ = Task.Run(() => HandleConnectionAsync(wsContext.WebSocket, token));
@@ -121,7 +190,6 @@ namespace windows_app
 
                 if (type == "text" && !string.IsNullOrEmpty(content))
                 {
-                    // Copy to Windows System Clipboard (Runs on UI Thread context)
                     App.MainWindowInstance?.DispatcherQueue.TryEnqueue(() =>
                     {
                         try

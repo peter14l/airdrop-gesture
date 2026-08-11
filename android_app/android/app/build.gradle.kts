@@ -60,4 +60,8 @@ flutter {
 
 dependencies {
     implementation("com.google.mediapipe:tasks-vision:0.10.29")
+    // CameraX for real-time camera capture
+    implementation("androidx.camera:camera-core:1.4.2")
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
 }

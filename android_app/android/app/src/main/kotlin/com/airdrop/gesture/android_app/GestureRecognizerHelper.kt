@@ -2,6 +2,13 @@ package com.airdrop.gesture.android_app
 
 import android.content.Context
 import android.util.Log
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.LifecycleOwner
+import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
@@ -10,15 +17,16 @@ import com.google.mediapipe.tasks.vision.gesturerecognizer.GestureRecognizerResu
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 class GestureRecognizerHelper(
     private val context: Context,
     private val methodChannel: MethodChannel
 ) {
     private var gestureRecognizer: GestureRecognizer? = null
-    private var executor: ExecutorService? = null
-    private var isProcessing = false
+    private var cameraProvider: ProcessCameraProvider? = null
+    private var imageAnalysis: ImageAnalysis? = null
+    private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private var isRunning = false
 
     companion object {
         private const val TAG = "GestureRecognizerHelper"
@@ -26,80 +34,94 @@ class GestureRecognizerHelper(
     }
 
     fun start() {
-        if (isProcessing) return
-        isProcessing = true
-        executor = Executors.newSingleThreadExecutor()
-        executor?.execute {
-            try {
-                setupGestureRecognizer()
-                Log.d(TAG, "MediaPipe Gesture Recognizer initialized successfully")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize Gesture Recognizer: ${e.message}", e)
-                isProcessing = false
-            }
-        }
+        if (isRunning) return
+        isRunning = true
+        setupGestureRecognizer()
+        startCamera()
     }
 
     fun stop() {
-        isProcessing = false
-        executor?.execute {
-            try {
-                gestureRecognizer?.close()
-                gestureRecognizer = null
-                Log.d(TAG, "MediaPipe Gesture Recognizer closed cleanly")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error closing Gesture Recognizer: ${e.message}", e)
-            }
-        }
-        executor?.shutdown()
-        try {
-            if (executor?.awaitTermination(800, TimeUnit.MILLISECONDS) == false) {
-                executor?.shutdownNow()
-            }
-        } catch (e: InterruptedException) {
-            executor?.shutdownNow()
-        }
-        executor = null
+        isRunning = false
+        cameraProvider?.unbindAll()
+        gestureRecognizer?.close()
+        gestureRecognizer = null
+        Log.d(TAG, "Camera and MediaPipe stopped.")
     }
 
     private fun setupGestureRecognizer() {
-        val baseOptionsBuilder = BaseOptions.builder()
-            .setDelegate(Delegate.GPU)
-            .setModelAssetPath(MODEL_NAME)
+        try {
+            val baseOptions = BaseOptions.builder()
+                .setDelegate(Delegate.GPU)
+                .setModelAssetPath(MODEL_NAME)
+                .build()
 
-        val optionsBuilder = GestureRecognizer.GestureRecognizerOptions.builder()
-            .setBaseOptions(baseOptionsBuilder.build())
-            .setRunningMode(RunningMode.LIVE_STREAM)
-            .setResultListener(this::onResult)
-            .setErrorListener(this::onError)
+            val options = GestureRecognizer.GestureRecognizerOptions.builder()
+                .setBaseOptions(baseOptions)
+                .setRunningMode(RunningMode.LIVE_STREAM)
+                .setResultListener(this::onResult)
+                .setErrorListener(this::onError)
+                .build()
 
-        gestureRecognizer = GestureRecognizer.createFromOptions(context, optionsBuilder.build())
+            gestureRecognizer = GestureRecognizer.createFromOptions(context, options)
+            Log.d(TAG, "MediaPipe Gesture Recognizer initialized successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize Gesture Recognizer: ${e.message}", e)
+            isRunning = false
+        }
     }
 
-    fun processFrame(imageData: ByteArray, width: Int, height: Int, timestampMs: Long) {
-        if (!isProcessing || gestureRecognizer == null) return
-        executor?.execute {
+    private fun startCamera() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        cameraProviderFuture.addListener({
             try {
-                // Downscaled 360p camera frame processing
-                // Convert raw format to MP Image and recognize
-                // For simulator / demo validation logic without direct camera hardware bindings:
-                // We mock the recognition of PINCH / PALM based on simulated data or frame buffers.
-                // In actual deployment, standard MediaPipe Image conversion goes here.
-                
-                // Demo simulated trigger logic based on raw frame analysis signature
-                if (imageData.isNotEmpty()) {
-                    val averageColor = imageData.map { it.toInt() and 0xFF }.average()
-                    // Fist/Pinch trigger condition: average color lower bounds
-                    if (averageColor < 80.0) {
-                        emitGesture("TRIGGER_GRAB")
-                    } else if (averageColor > 180.0) {
-                        emitGesture("TRIGGER_DROP")
+                cameraProvider = cameraProviderFuture.get()
+
+                // Use the front camera for hand gesture detection
+                val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+
+                imageAnalysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                    .build()
+                    .also { analysis ->
+                        analysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                            processImageProxy(imageProxy)
+                        }
                     }
-                }
+
+                cameraProvider?.unbindAll()
+                cameraProvider?.bindToLifecycle(
+                    context as LifecycleOwner,
+                    cameraSelector,
+                    imageAnalysis
+                )
+                Log.d(TAG, "CameraX started and bound to lifecycle.")
             } catch (e: Exception) {
-                Log.e(TAG, "Error processing frame: ${e.message}")
+                Log.e(TAG, "CameraX startup failed: ${e.message}", e)
             }
+        }, ContextCompat.getMainExecutor(context))
+    }
+
+    private fun processImageProxy(imageProxy: ImageProxy) {
+        if (!isRunning || gestureRecognizer == null) {
+            imageProxy.close()
+            return
         }
+        try {
+            val bitmap = imageProxy.toBitmap()
+            val mpImage = BitmapImageBuilder(bitmap).build()
+            val timestampMs = imageProxy.imageInfo.timestamp / 1_000_000
+            gestureRecognizer?.recognizeAsync(mpImage, timestampMs)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing frame: ${e.message}")
+        } finally {
+            imageProxy.close()
+        }
+    }
+
+    // Called by MainActivity legacy processFrame path — no-op now that CameraX feeds frames
+    fun processFrame(imageData: ByteArray, width: Int, height: Int, timestampMs: Long) {
+        // Frames are now supplied directly from CameraX via processImageProxy
     }
 
     private fun onResult(result: GestureRecognizerResult, image: com.google.mediapipe.framework.image.MPImage) {
@@ -107,8 +129,8 @@ class GestureRecognizerHelper(
             val gesture = result.gestures()[0][0].categoryName()
             Log.d(TAG, "Gesture recognized: $gesture")
             when (gesture) {
-                "Closed_Fist", "Pinch" -> emitGesture("TRIGGER_GRAB")
-                "Open_Palm" -> emitGesture("TRIGGER_DROP")
+                "Closed_Fist" -> emitGesture("TRIGGER_GRAB")
+                "Open_Palm"   -> emitGesture("TRIGGER_DROP")
             }
         }
     }
@@ -118,7 +140,6 @@ class GestureRecognizerHelper(
     }
 
     private fun emitGesture(trigger: String) {
-        // Safe dispatch on Main Thread back to Flutter UI channel
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
         handler.post {
             methodChannel.invokeMethod(trigger, null)
