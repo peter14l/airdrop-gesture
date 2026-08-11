@@ -11,35 +11,76 @@
     <Grid Padding="24" RowSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+        
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*" />
+            <ColumnDefinition Width="1*" />
+        </Grid.ColumnDefinitions>
 
         <!-- Header -->
-        <StackPanel Grid.Row="0" Spacing="8">
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="8">
             <TextBlock Text="AirDrop Gesture Desktop Service" Style="{StaticResource TitleTextBlockStyle}" FontWeight="Bold" />
             <TextBlock Text="Status: Active and Listening on ws://0.0.0.0:8080" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </StackPanel>
 
-        <!-- Status Details -->
-        <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Padding="16">
-            <StackPanel Spacing="8">
-                <TextBlock Text="Zero-Config Auto-Pairing Active" FontWeight="SemiBold" />
-                <TextBlock Text="Discovery service broadcasts local IP via mDNS. Connect from the Android app to synchronize clipboards instantly." TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
-            </StackPanel>
-        </Border>
-
-        <!-- Log Panel -->
-        <Grid Grid.Row="2" RowSpacing="8">
+        <!-- Left Side: Status & Log Panel -->
+        <Grid Grid.Row="1" Grid.Column="0" RowSpacing="16" Margin="0,0,16,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="Activity Logs" FontWeight="SemiBold" />
-            <ScrollViewer Grid.Row="1" x:Name="LogScrollViewer" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4" BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}">
-                <TextBox x:Name="LogTextBox" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" BorderThickness="0" FontFamily="Consolas" Padding="8" />
-            </ScrollViewer>
+            <!-- Status Details -->
+            <Border Grid.Row="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Zero-Config Auto-Pairing Active" FontWeight="SemiBold" />
+                    <TextBlock Text="Discovery service broadcasts local IP via mDNS. Connect from the Android app to synchronize clipboards instantly." TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Log Panel -->
+            <Grid Grid.Row="1" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Activity Logs" FontWeight="SemiBold" />
+                <ScrollViewer Grid.Row="1" x:Name="LogScrollViewer" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4" BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}">
+                    <TextBox x:Name="LogTextBox" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" BorderThickness="0" FontFamily="Consolas" Padding="8" />
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <!-- Right Side: Camera Preview / Gesture State -->
+        <Grid Grid.Row="1" Grid.Column="1" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" Padding="8">
+                <Grid>
+                    <!-- Fallback camera icon/text -->
+                    <StackPanel x:Name="CameraFallbackPanel" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                        <SymbolIcon Symbol="Video" Width="36" Height="36" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Camera Loading..." Style="{StaticResource BodyTextBlockStyle}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                    
+                    <!-- Real Camera Frame Source -->
+                    <Image x:Name="CameraPreviewImage" Stretch="Uniform" />
+                </Grid>
+            </Border>
+
+            <!-- Gesture Alert Badge -->
+            <Border Grid.Row="1" x:Name="GestureStatusBadge" Background="{ThemeResource SystemFillColorNeutralBackgroundBrush}" CornerRadius="8" Padding="16">
+                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                    <TextBlock Text="Laptop Gesture Tracker" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock x:Name="GestureStatusText" Text="Waiting for drop gesture..." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
         </Grid>
     </Grid>
 </Page>

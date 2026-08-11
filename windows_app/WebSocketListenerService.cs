@@ -177,6 +177,43 @@ namespace windows_app
             }
         }
 
+        public static string? LastReceivedPayload { get; set; }
+
+        public static void PasteCachedPayload(Action<string> logCallback)
+        {
+            if (string.IsNullOrEmpty(LastReceivedPayload))
+            {
+                logCallback("No payload cached. Grab something on Android first.");
+                return;
+            }
+
+            App.MainWindowInstance?.DispatcherQueue.TryEnqueue(() =>
+            {
+                try
+                {
+                    var dataPackage = new DataPackage();
+                    dataPackage.SetText(LastReceivedPayload);
+                    Clipboard.SetContent(dataPackage);
+                    Clipboard.Flush();
+                    logCallback($"[Local Gesture] Clipboard synced! Pasted: {LastReceivedPayload}");
+
+                    // Clear the cache after drop to prevent double paste
+                    LastReceivedPayload = null;
+
+                    // Trigger toast notification
+                    var toastXml = new AppNotificationBuilder()
+                        .AddText("AirDrop Sync Complete")
+                        .AddText("Payload dropped and pasted to system clipboard via gesture.")
+                        .BuildNotification();
+                    AppNotificationManager.Default.Show(toastXml);
+                }
+                catch (Exception ex)
+                {
+                    logCallback($"Clipboard error: {ex.Message}");
+                }
+            });
+        }
+
         private void ProcessPayload(string jsonString)
         {
             try
@@ -190,22 +227,8 @@ namespace windows_app
 
                 if (type == "text" && !string.IsNullOrEmpty(content))
                 {
-                    App.MainWindowInstance?.DispatcherQueue.TryEnqueue(() =>
-                    {
-                        try
-                        {
-                            var dataPackage = new DataPackage();
-                            dataPackage.SetText(content);
-                            Clipboard.SetContent(dataPackage);
-                            Clipboard.Flush();
-                            _onLogReceived("Copied text payload directly to Windows Clipboard!");
-                            ShowToastNotification("Clipboard Synced", "Android payload written to system clipboard.");
-                        }
-                        catch (Exception ex)
-                        {
-                            _onLogReceived($"Clipboard error: {ex.Message}");
-                        }
-                    });
+                    LastReceivedPayload = content;
+                    _onLogReceived("Payload cached! Open your palm in front of the laptop camera to paste it.");
                 }
             }
             catch (Exception ex)
