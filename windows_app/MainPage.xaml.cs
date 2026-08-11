@@ -188,12 +188,15 @@ namespace windows_app
                     // Run the custom light-level structural detector to verify if a hand is covering the lens (Drop gesture)
                     ProcessGestureAnalysis(softwareBitmap);
 
+                    // Clone the bitmap for safe asynchronous rendering on the UI thread
+                    var renderCopy = SoftwareBitmap.Copy(softwareBitmap);
+
                     // Render preview to screen
                     DispatcherQueue.TryEnqueue(async () =>
                     {
                         try
                         {
-                            await _previewSource!.SetBitmapAsync(softwareBitmap);
+                            await _previewSource!.SetBitmapAsync(renderCopy);
                         }
                         catch
                         {
@@ -201,7 +204,7 @@ namespace windows_app
                         }
                         finally
                         {
-                            softwareBitmap.Dispose();
+                            renderCopy.Dispose();
                         }
                     });
                 }

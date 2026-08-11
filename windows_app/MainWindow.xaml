@@ -25,9 +25,9 @@
             ToolTipText="AirDrop Gesture Service">
             <tb:TaskbarIcon.ContextFlyout>
                 <MenuFlyout>
-                    <MenuFlyoutItem Text="Restore" Click="MenuRestore_Click" />
+                    <MenuFlyoutItem Text="Restore" Command="{x:Bind RestoreCommand}" />
                     <MenuFlyoutSeparator />
-                    <MenuFlyoutItem Text="Exit" Click="MenuExit_Click" />
+                    <MenuFlyoutItem Text="Exit" Command="{x:Bind ExitCommand}" />
                 </MenuFlyout>
             </tb:TaskbarIcon.ContextFlyout>
         </tb:TaskbarIcon>

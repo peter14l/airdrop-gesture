@@ -9,9 +9,20 @@ namespace windows_app
         private readonly WebSocketListenerService _service;
         public Action<string>? OnLogAdded;
 
+        public System.Windows.Input.ICommand RestoreCommand { get; }
+        public System.Windows.Input.ICommand ExitCommand { get; }
+
         public MainWindow()
         {
             InitializeComponent();
+
+            RestoreCommand = new TrayCommand(() => ShowWindow());
+            ExitCommand = new TrayCommand(() =>
+            {
+                _service.Stop();
+                MyNotifyIcon.Dispose();
+                Application.Current.Exit();
+            });
 
             this.Activated += (s, e) =>
             {
@@ -35,7 +46,7 @@ namespace windows_app
             _service.Start();
 
             // Set Tray Double Click Command dynamically to resolve XAML compilation issues
-            MyNotifyIcon.DoubleClickCommand = new TrayCommand(() => ShowWindow());
+            MyNotifyIcon.DoubleClickCommand = RestoreCommand;
 
             // Navigate root frame
             RootFrame.Navigate(typeof(MainPage));
