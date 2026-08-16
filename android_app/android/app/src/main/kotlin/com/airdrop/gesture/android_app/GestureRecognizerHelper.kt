@@ -50,14 +50,20 @@ class GestureRecognizerHelper(
 
     private fun setupGestureRecognizer() {
         try {
-            val baseOptions = BaseOptions.builder()
-                .setDelegate(Delegate.GPU)
-                .setModelAssetPath(MODEL_NAME)
-                .build()
+            // Try GPU delegate first, fallback to CPU if GPU delegate is unsupported on device
+            var baseOptionsBuilder = BaseOptions.builder().setModelAssetPath(MODEL_NAME)
+            try {
+                baseOptionsBuilder = baseOptionsBuilder.setDelegate(Delegate.GPU)
+            } catch (e: Exception) {
+                baseOptionsBuilder = BaseOptions.builder().setModelAssetPath(MODEL_NAME).setDelegate(Delegate.CPU)
+            }
 
             val options = GestureRecognizer.GestureRecognizerOptions.builder()
-                .setBaseOptions(baseOptions)
+                .setBaseOptions(baseOptionsBuilder.build())
                 .setRunningMode(RunningMode.LIVE_STREAM)
+                .setMinHandDetectionConfidence(0.5f)
+                .setMinHandPresenceConfidence(0.5f)
+                .setMinTrackingConfidence(0.5f)
                 .setResultListener(this::onResult)
                 .setErrorListener(this::onError)
                 .build()
@@ -65,8 +71,23 @@ class GestureRecognizerHelper(
             gestureRecognizer = GestureRecognizer.createFromOptions(activity, options)
             Log.d(TAG, "MediaPipe Gesture Recognizer initialized successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize Gesture Recognizer: ${e.message}", e)
-            isRunning = false
+            Log.e(TAG, "GPU init failed, attempting CPU fallback: ${e.message}")
+            try {
+                val cpuOptions = GestureRecognizer.GestureRecognizerOptions.builder()
+                    .setBaseOptions(BaseOptions.builder().setModelAssetPath(MODEL_NAME).setDelegate(Delegate.CPU).build())
+                    .setRunningMode(RunningMode.LIVE_STREAM)
+                    .setMinHandDetectionConfidence(0.5f)
+                    .setMinHandPresenceConfidence(0.5f)
+                    .setMinTrackingConfidence(0.5f)
+                    .setResultListener(this::onResult)
+                    .setErrorListener(this::onError)
+                    .build()
+                gestureRecognizer = GestureRecognizer.createFromOptions(activity, cpuOptions)
+                Log.d(TAG, "MediaPipe CPU Gesture Recognizer initialized successfully")
+            } catch (cpuEx: Exception) {
+                Log.e(TAG, "Failed to initialize Gesture Recognizer on CPU: ${cpuEx.message}", cpuEx)
+                isRunning = false
+            }
         }
     }
 
@@ -89,7 +110,6 @@ class GestureRecognizerHelper(
                     }
 
                 cameraProvider?.unbindAll()
-                // activity IS a LifecycleOwner — CameraX will follow its lifecycle
                 cameraProvider?.bindToLifecycle(
                     activity as LifecycleOwner,
                     cameraSelector,
@@ -109,7 +129,19 @@ class GestureRecognizerHelper(
         }
         try {
             val bitmap = imageProxy.toBitmap()
-            val mpImage = BitmapImageBuilder(bitmap).build()
+            val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+
+            // Rotate bitmap according to camera sensor orientation (crucial for MediaPipe hand pose)
+            val matrix = android.graphics.Matrix()
+            matrix.postRotate(rotationDegrees.toFloat())
+            // Mirror horizontally since it's the front-facing camera
+            matrix.postScale(-1f, 1f, bitmap.width / 2f, bitmap.height / 2f)
+
+            val rotatedBitmap = android.graphics.Bitmap.createBitmap(
+                bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+            )
+
+            val mpImage = BitmapImageBuilder(rotatedBitmap).build()
             val timestampMs = imageProxy.imageInfo.timestamp / 1_000_000
             gestureRecognizer?.recognizeAsync(mpImage, timestampMs)
         } catch (e: Exception) {
@@ -123,18 +155,53 @@ class GestureRecognizerHelper(
     fun processFrame(imageData: ByteArray, width: Int, height: Int, timestampMs: Long) {}
 
     private fun onResult(result: GestureRecognizerResult, image: com.google.mediapipe.framework.image.MPImage) {
+        // Extract hand landmarks for live skeleton overlay
+        if (result.landmarks().isNotEmpty()) {
+            val handLandmarks = result.landmarks()[0]
+            val landmarkPoints = ArrayList<Map<String, Double>>()
+            for (lm in handLandmarks) {
+                val pt = HashMap<String, Double>()
+                pt["x"] = lm.x().toDouble()
+                pt["y"] = lm.y().toDouble()
+                pt["z"] = lm.z().toDouble()
+                landmarkPoints.add(pt)
+            }
+            emitLandmarks(landmarkPoints)
+        } else {
+            emitLandmarks(emptyList())
+        }
+
         if (result.gestures().isNotEmpty()) {
             val gesture = result.gestures()[0][0].categoryName()
-            Log.d(TAG, "Gesture recognized: $gesture")
+            val score = result.gestures()[0][0].score()
+            Log.d(TAG, "Gesture recognized: $gesture with score $score")
+
+            // Send raw detected category for real-time UI display
+            emitRawGesture(gesture)
+
             when (gesture) {
                 "Closed_Fist" -> emitGesture("TRIGGER_GRAB")
                 "Open_Palm"   -> emitGesture("TRIGGER_DROP")
             }
+        } else {
+            emitRawGesture("None")
         }
     }
 
     private fun onError(error: RuntimeException) {
         Log.e(TAG, "MediaPipe error: ${error.message}", error)
+    }
+
+    private fun emitLandmarks(landmarks: List<Map<String, Double>>) {
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            methodChannel.invokeMethod("onLandmarksDetected", landmarks)
+        }
+    }
+
+    private fun emitRawGesture(gesture: String) {
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            methodChannel.invokeMethod("onGestureDetected", gesture)
+        }
     }
 
     private fun emitGesture(trigger: String) {

@@ -4,6 +4,14 @@ import 'package:flutter/services.dart';
 class VisionManager {
   static const MethodChannel _channel = MethodChannel('com.airdrop.gesture/vision');
 
+  // Broadcast stream for real-time detected hand landmarks [(x, y, z)]
+  static final StreamController<List<Offset>> _landmarksStreamController = StreamController<List<Offset>>.broadcast();
+  static Stream<List<Offset>> get landmarksStream => _landmarksStreamController.stream;
+
+  // Broadcast stream for real-time detected gesture labels
+  static final StreamController<String> _rawGestureStreamController = StreamController<String>.broadcast();
+  static Stream<String> get rawGestureStream => _rawGestureStreamController.stream;
+
   // Broadcast stream for incoming gesture triggers
   static final StreamController<String> _gestureStreamController = StreamController<String>.broadcast();
   static Stream<String> get gestureStream => _gestureStreamController.stream;
@@ -22,6 +30,25 @@ class VisionManager {
 
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
+        case 'onLandmarksDetected':
+          if (call.arguments is List) {
+            final list = call.arguments as List;
+            final points = list.map<Offset>((pt) {
+              if (pt is Map) {
+                final x = (pt['x'] as num?)?.toDouble() ?? 0.0;
+                final y = (pt['y'] as num?)?.toDouble() ?? 0.0;
+                return Offset(x, y);
+              }
+              return Offset.zero;
+            }).toList();
+            _landmarksStreamController.add(points);
+          }
+          break;
+        case 'onGestureDetected':
+          if (call.arguments is String) {
+            _rawGestureStreamController.add(call.arguments as String);
+          }
+          break;
         case 'TRIGGER_GRAB':
           _gestureStreamController.add('TRIGGER_GRAB');
           break;

@@ -29,7 +29,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int? _selectedFileSize;
   String? _base64FileContent;
 
+  List<Offset> _handLandmarks = [];
+  late StreamSubscription _landmarksSubscription;
   late StreamSubscription _gestureSubscription;
+  late StreamSubscription _rawGestureSubscription;
   late StreamSubscription _connectionSubscription;
   StreamSubscription? _sharedFileSub;
 
@@ -48,9 +51,21 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     });
 
+    _landmarksSubscription = VisionManager.landmarksStream.listen((landmarks) {
+      setState(() {
+        _handLandmarks = landmarks;
+      });
+    });
+
+    _rawGestureSubscription = VisionManager.rawGestureStream.listen((rawGesture) {
+      setState(() {
+        _activeGesture = rawGesture;
+      });
+    });
+
     _gestureSubscription = VisionManager.gestureStream.listen((gesture) {
       setState(() {
-        _activeGesture = gesture == 'TRIGGER_GRAB' ? "Fist / closed pinch (GRAB)" : "Open palm push (DROP)";
+        _activeGesture = gesture == 'TRIGGER_GRAB' ? "Closed_Fist (GRAB)" : "Open_Palm (DROP)";
       });
       _handleGestureAction(gesture);
     });
@@ -287,121 +302,164 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Gestural Status Card
+            // Gestural Status & Live Skeleton Preview Card
             Expanded(
               child: M3ECard(
                 variant: M3ECardVariant.elevated,
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _isPipelineActive ? Icons.videocam : Icons.videocam_off,
-                          size: 64,
-                          color: _isPipelineActive ? scheme.primary : scheme.outline,
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          "Local Hand Tracking Engine",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _isPipelineActive ? "Status: ACTIVE (GPU Accelerated)" : "Status: SLEEPING (Power Saved)",
-                          style: TextStyle(color: scheme.onSurfaceVariant),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          "Detected Gesture: $_activeGesture",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: scheme.primary,
-                          ),
-                        ),
-                        if (_clipboardPayload.isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: scheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  _payloadType == 'image' ? Icons.image : (_payloadType == 'file' ? Icons.insert_drive_file : Icons.content_paste),
-                                  color: scheme.onPrimaryContainer,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    children: [
+                      // Viewport Background
+                      Container(
+                        width: double.infinity,
+                        height: double.infinity,
+                        color: Colors.black.withOpacity(0.92),
+                        child: _isPipelineActive
+                            ? CustomPaint(
+                                painter: HandSkeletonPainter(
+                                  landmarks: _handLandmarks,
+                                  gesture: _activeGesture,
+                                  primaryColor: scheme.primary,
+                                  secondaryColor: scheme.secondary,
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    "Holding: $_clipboardPayload",
-                                    style: TextStyle(color: scheme.onPrimaryContainer, fontSize: 13, fontWeight: FontWeight.w600),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        ],
-
-                        // Live Transfer Animation & Progress Bar
-                        if (_isTransferring) ...[
-                          const SizedBox(height: 24),
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: scheme.secondaryContainer.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: scheme.secondary, width: 1.5),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              )
+                            : Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Row(
-                                      children: [
-                                        const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          _transferStatusText,
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: scheme.onSecondaryContainer, fontSize: 13),
-                                        ),
-                                      ],
-                                    ),
+                                    Icon(Icons.videocam_off, size: 64, color: scheme.outline),
+                                    const SizedBox(height: 12),
                                     Text(
-                                      "${(_transferProgress * 100).toStringAsFixed(0)}%",
-                                      style: TextStyle(fontWeight: FontWeight.w900, color: scheme.secondary, fontSize: 14),
+                                      "Sensor Sleeping (Power Saved)",
+                                      style: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      "Tap 'Arm Camera' or hover over sensor to wake",
+                                      style: TextStyle(color: scheme.outline, fontSize: 12),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 10),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: LinearProgressIndicator(
-                                    value: _transferProgress,
-                                    minHeight: 8,
-                                    backgroundColor: scheme.surfaceContainerHighest,
-                                    valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
-                                  ),
+                              ),
+                      ),
+
+                      // Overlay HUD Badges
+                      Positioned(
+                        top: 12,
+                        left: 12,
+                        right: 12,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _isPipelineActive ? Colors.greenAccent : Colors.grey,
+                                  width: 1,
                                 ),
-                              ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: _isPipelineActive ? Colors.greenAccent : Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _isPipelineActive ? "TRACKING ACTIVE" : "STANDBY",
+                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
                             ),
-                          )
-                        ]
-                      ],
-                    ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: scheme.primary.withOpacity(0.85),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                "Gesture: $_activeGesture",
+                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Bottom Holding & Transfer Card
+                      Positioned(
+                        bottom: 12,
+                        left: 12,
+                        right: 12,
+                        child: Column(
+                          children: [
+                            if (_clipboardPayload.isNotEmpty)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: scheme.primaryContainer.withOpacity(0.95),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _payloadType == 'image' ? Icons.image : (_payloadType == 'file' ? Icons.insert_drive_file : Icons.content_paste),
+                                      color: scheme.onPrimaryContainer,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        "Holding: $_clipboardPayload",
+                                        style: TextStyle(color: scheme.onPrimaryContainer, fontSize: 12, fontWeight: FontWeight.bold),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            // Live Transfer Progress
+                            if (_isTransferring)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.8),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: scheme.secondary, width: 1.5),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(_transferStatusText, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                        Text("${(_transferProgress * 100).toStringAsFixed(0)}%", style: TextStyle(color: scheme.secondary, fontWeight: FontWeight.w900)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    LinearProgressIndicator(
+                                      value: _transferProgress,
+                                      backgroundColor: Colors.white24,
+                                      valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
+                                    ),
+                                  ],
+                                ),
+                              )
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -455,10 +513,119 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _landmarksSubscription.cancel();
     _gestureSubscription.cancel();
+    _rawGestureSubscription.cancel();
     _connectionSubscription.cancel();
     _sharedFileSub?.cancel();
     _networkManager.dispose();
     super.dispose();
+  }
+}
+
+// MediaPipe 21 Hand Landmarks Skeleton Painter with glowing cyber lines & joints
+class HandSkeletonPainter extends CustomPainter {
+  final List<Offset> landmarks;
+  final String gesture;
+  final Color primaryColor;
+  final Color secondaryColor;
+
+  HandSkeletonPainter({
+    required this.landmarks,
+    required this.gesture,
+    required this.primaryColor,
+    required this.secondaryColor,
+  });
+
+  // 21 standard MediaPipe hand landmark connections
+  static const List<List<int>> connections = [
+    // Palm base
+    [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
+    [0, 5], [5, 6], [6, 7], [7, 8], // Index
+    [5, 9], [9, 10], [10, 11], [11, 12], // Middle
+    [9, 13], [13, 14], [14, 15], [15, 16], // Ring
+    [13, 17], [17, 18], [18, 19], [19, 20], // Pinky
+    [0, 17], // Wrist to Pinky root
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Draw radar grid
+    final gridPaint = Paint()
+      ..color = Colors.cyanAccent.withOpacity(0.12)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    canvas.drawCircle(center, size.width * 0.35, gridPaint);
+    canvas.drawCircle(center, size.width * 0.20, gridPaint);
+    canvas.drawLine(Offset(center.dx, 0), Offset(center.dx, size.height), gridPaint);
+    canvas.drawLine(Offset(0, center.dy), Offset(size.width, center.dy), gridPaint);
+
+    if (landmarks.isEmpty) {
+      final textPainter = TextPainter(
+        text: const TextSpan(
+          text: "Show your hand to camera\n(Fist to Grab • Palm to Drop)",
+          style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.4),
+        ),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: size.width - 40);
+      textPainter.paint(canvas, Offset((size.width - textPainter.width) / 2, center.dy - 20));
+      return;
+    }
+
+    final isGrab = gesture.contains("Closed_Fist") || gesture.contains("GRAB");
+    final isDrop = gesture.contains("Open_Palm") || gesture.contains("DROP");
+    final activeBoneColor = isGrab ? Colors.amberAccent : (isDrop ? Colors.cyanAccent : Colors.greenAccent);
+
+    // Glowing bone stroke
+    final boneGlowPaint = Paint()
+      ..color = activeBoneColor.withOpacity(0.4)
+      ..strokeWidth = 8
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    final bonePaint = Paint()
+      ..color = activeBoneColor
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    final jointGlowPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final jointRingPaint = Paint()
+      ..color = activeBoneColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    // Draw connecting bones
+    for (final conn in connections) {
+      if (conn[0] < landmarks.length && conn[1] < landmarks.length) {
+        final p1 = Offset(landmarks[conn[0]].dx * size.width, landmarks[conn[0]].dy * size.height);
+        final p2 = Offset(landmarks[conn[1]].dx * size.width, landmarks[conn[1]].dy * size.height);
+
+        canvas.drawLine(p1, p2, boneGlowPaint);
+        canvas.drawLine(p1, p2, bonePaint);
+      }
+    }
+
+    // Draw joints
+    for (int i = 0; i < landmarks.length; i++) {
+      final p = Offset(landmarks[i].dx * size.width, landmarks[i].dy * size.height);
+      // Fingertips (4, 8, 12, 16, 20) are slightly larger
+      final isTip = [4, 8, 12, 16, 20].contains(i);
+      final radius = isTip ? 6.0 : 4.0;
+
+      canvas.drawCircle(p, radius, jointGlowPaint);
+      canvas.drawCircle(p, radius + 2, jointRingPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant HandSkeletonPainter oldDelegate) {
+    return oldDelegate.landmarks != landmarks || oldDelegate.gesture != gesture;
   }
 }
