@@ -69,12 +69,55 @@ class MainActivity : FlutterActivity(), SensorEventListener {
                     }
                     result.success(true)
                 }
+                "getSharedFile" -> {
+                    val path = extractSharedFilePath(intent)
+                    result.success(path)
+                }
                 "processFrame" -> {
                     // Frames are now fed by CameraX directly; this path is a no-op
                     result.success(true)
                 }
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    override fun onNewIntent(newIntent: android.content.Intent) {
+        super.onNewIntent(newIntent)
+        setIntent(newIntent)
+        val path = extractSharedFilePath(newIntent)
+        if (path != null) {
+            methodChannel?.invokeMethod("onSharedFileReceived", path)
+        }
+    }
+
+    private fun extractSharedFilePath(inIntent: android.content.Intent?): String? {
+        if (inIntent == null) return null
+        if (inIntent.action == android.content.Intent.ACTION_SEND) {
+            val uri = inIntent.getParcelableExtra<android.net.Uri>(android.content.Intent.EXTRA_STREAM)
+            if (uri != null) {
+                return copyUriToCache(uri)
+            } else {
+                val text = inIntent.getStringExtra(android.content.Intent.EXTRA_TEXT)
+                if (text != null) return "text:$text"
+            }
+        }
+        return null
+    }
+
+    private fun copyUriToCache(uri: android.net.Uri): String? {
+        return try {
+            val resolver = contentResolver
+            val name = "shared_${System.currentTimeMillis()}"
+            val tempFile = java.io.File(cacheDir, name)
+            resolver.openInputStream(uri)?.use { input ->
+                tempFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            tempFile.absolutePath
+        } catch (e: Exception) {
+            null
         }
     }
 

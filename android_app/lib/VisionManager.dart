@@ -8,6 +8,10 @@ class VisionManager {
   static final StreamController<String> _gestureStreamController = StreamController<String>.broadcast();
   static Stream<String> get gestureStream => _gestureStreamController.stream;
 
+  // Broadcast stream for incoming native shared files
+  static final StreamController<String> _sharedFileStreamController = StreamController<String>.broadcast();
+  static Stream<String> get sharedFileStream => _sharedFileStreamController.stream;
+
   static bool _initialized = false;
   static bool _isActive = false;
   static bool get isActive => _isActive;
@@ -24,10 +28,24 @@ class VisionManager {
         case 'TRIGGER_DROP':
           _gestureStreamController.add('TRIGGER_DROP');
           break;
+        case 'onSharedFileReceived':
+          if (call.arguments is String) {
+            _sharedFileStreamController.add(call.arguments as String);
+          }
+          break;
         default:
           break;
       }
     });
+  }
+
+  static Future<String?> getInitialSharedFile() async {
+    try {
+      final String? path = await _channel.invokeMethod('getSharedFile');
+      return path;
+    } catch (e) {
+      return null;
+    }
   }
 
   static Future<void> startVisionPipeline() async {

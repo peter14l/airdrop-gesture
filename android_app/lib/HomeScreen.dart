@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'NetworkManager.dart';
 import 'VisionManager.dart';
@@ -32,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late StreamSubscription _gestureSubscription;
   late StreamSubscription _connectionSubscription;
-  StreamSubscription? _intentSub;
+  StreamSubscription? _sharedFileSub;
 
   @override
   void initState() {
@@ -56,26 +55,16 @@ class _HomeScreenState extends State<HomeScreen> {
       _handleGestureAction(gesture);
     });
 
-    // Listen for incoming shared files/text from Android Share Sheet
-    _listenForSharedIntents();
-  }
+    // Listen for incoming shared files/text from Android Share Sheet via native Kotlin channel
+    _sharedFileSub = VisionManager.sharedFileStream.listen((filePath) {
+      _processSharedFile(filePath);
+    });
 
-  void _listenForSharedIntents() {
-    try {
-      ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
-        if (value.isNotEmpty) {
-          _processSharedFile(value.first.path);
-        }
-      });
-
-      ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
-        if (value.isNotEmpty) {
-          _processSharedFile(value.first.path);
-        }
-      });
-    } catch (e) {
-      print("Error listening to share intent: $e");
-    }
+    VisionManager.getInitialSharedFile().then((filePath) {
+      if (filePath != null) {
+        _processSharedFile(filePath);
+      }
+    });
   }
 
   Future<void> _processSharedFile(String filePath) async {
@@ -468,6 +457,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _gestureSubscription.cancel();
     _connectionSubscription.cancel();
+    _sharedFileSub?.cancel();
     _networkManager.dispose();
     super.dispose();
   }
