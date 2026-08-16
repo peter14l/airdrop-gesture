@@ -4,6 +4,10 @@ import 'package:flutter/services.dart';
 class VisionManager {
   static const MethodChannel _channel = MethodChannel('com.airdrop.gesture/vision');
 
+  // Broadcast stream for real-time live camera video frames (JPEG)
+  static final StreamController<Uint8List> _cameraFrameStreamController = StreamController<Uint8List>.broadcast();
+  static Stream<Uint8List> get cameraFrameStream => _cameraFrameStreamController.stream;
+
   // Broadcast stream for real-time detected hand landmarks [(x, y, z)]
   static final StreamController<List<Offset>> _landmarksStreamController = StreamController<List<Offset>>.broadcast();
   static Stream<List<Offset>> get landmarksStream => _landmarksStreamController.stream;
@@ -30,6 +34,13 @@ class VisionManager {
 
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
+        case 'onCameraFrame':
+          if (call.arguments is Uint8List) {
+            _cameraFrameStreamController.add(call.arguments as Uint8List);
+          } else if (call.arguments is List) {
+            _cameraFrameStreamController.add(Uint8List.fromList((call.arguments as List).cast<int>()));
+          }
+          break;
         case 'onLandmarksDetected':
           if (call.arguments is List) {
             final list = call.arguments as List;

@@ -133,7 +133,7 @@ namespace windows_app
                 var settings = new MediaCaptureInitializationSettings
                 {
                     SourceGroup = selectedGroup,
-                    SharingMode = MediaCaptureSharingMode.SharedReadOnly,
+                    SharingMode = MediaCaptureSharingMode.ExclusiveControl,
                     MemoryPreference = MediaCaptureMemoryPreference.Cpu,
                     StreamingCaptureMode = StreamingCaptureMode.Video
                 };
@@ -143,17 +143,25 @@ namespace windows_app
 
                 // Find a suitable video preview source
                 var sourceInfo = selectedGroup.SourceInfos.FirstOrDefault(s => s.MediaStreamType == MediaStreamType.VideoPreview) 
-                                 ?? selectedGroup.SourceInfos.FirstOrDefault(s => s.MediaStreamType == MediaStreamType.VideoRecord);
+                                 ?? selectedGroup.SourceInfos.FirstOrDefault(s => s.MediaStreamType == MediaStreamType.VideoRecord)
+                                 ?? selectedGroup.SourceInfos.FirstOrDefault();
 
-                if (sourceInfo != null)
+                if (sourceInfo != null && _mediaCapture.FrameSources.ContainsKey(sourceInfo.Id))
                 {
                     var frameSource = _mediaCapture.FrameSources[sourceInfo.Id];
                     _frameReader = await _mediaCapture.CreateFrameReaderAsync(frameSource, MediaEncodingSubtypes.Bgra8);
                     _frameReader.FrameArrived += OnFrameArrived;
-                    await _frameReader.StartAsync();
+                    var status = await _frameReader.StartAsync();
 
-                    CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-                    AddLogMessage($"Active Camera Source: {selectedGroup.DisplayName}");
+                    if (status == MediaFrameReaderStartStatus.Success)
+                    {
+                        CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+                        AddLogMessage($"Active Camera Source: {selectedGroup.DisplayName} (Streaming Live)");
+                    }
+                    else
+                    {
+                        AddLogMessage($"FrameReader start status: {status}");
+                    }
                 }
             }
             catch (Exception ex)

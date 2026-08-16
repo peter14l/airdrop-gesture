@@ -126,6 +126,9 @@ class GestureRecognizerHelper(
         }, ContextCompat.getMainExecutor(activity))
     }
 
+    private var lastFrameTime = 0L
+    private val frameStreamIntervalMs = 40L // ~25 FPS live preview stream
+
     private fun processImageProxy(imageProxy: ImageProxy) {
         if (!isRunning || gestureRecognizer == null) {
             imageProxy.close()
@@ -145,9 +148,21 @@ class GestureRecognizerHelper(
                 bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
             )
 
+            // Feed MediaPipe
             val mpImage = BitmapImageBuilder(rotatedBitmap).build()
             val timestampMs = imageProxy.imageInfo.timestamp / 1_000_000
             gestureRecognizer?.recognizeAsync(mpImage, timestampMs)
+
+            // Stream live camera preview frame to Flutter UI at ~25 FPS
+            val now = System.currentTimeMillis()
+            if (now - lastFrameTime >= frameStreamIntervalMs) {
+                lastFrameTime = now
+                val scaled = android.graphics.Bitmap.createScaledBitmap(rotatedBitmap, 360, (360f * rotatedBitmap.height / rotatedBitmap.width).toInt(), false)
+                val out = java.io.ByteArrayOutputStream()
+                scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 60, out)
+                val jpegBytes = out.toByteArray()
+                emitCameraFrame(jpegBytes)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error processing frame: ${e.message}")
         } finally {
@@ -155,8 +170,11 @@ class GestureRecognizerHelper(
         }
     }
 
-    // Legacy path — no-op now that CameraX feeds frames directly
-    fun processFrame(imageData: ByteArray, width: Int, height: Int, timestampMs: Long) {}
+    private fun emitCameraFrame(bytes: ByteArray) {
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            methodChannel.invokeMethod("onCameraFrame", bytes)
+        }
+    }
 
     private fun onResult(result: GestureRecognizerResult, image: com.google.mediapipe.framework.image.MPImage) {
         // Extract hand landmarks for live skeleton overlay

@@ -30,6 +30,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _base64FileContent;
 
   List<Offset> _handLandmarks = [];
+  Uint8List? _latestCameraFrame;
+  late StreamSubscription _frameSubscription;
   late StreamSubscription _landmarksSubscription;
   late StreamSubscription _gestureSubscription;
   late StreamSubscription _rawGestureSubscription;
@@ -48,6 +50,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _statusMessage = connected
             ? "Paired & Connected to Windows Service"
             : "Scanning network for Windows Service...";
+      });
+    });
+
+    _frameSubscription = VisionManager.cameraFrameStream.listen((frameBytes) {
+      setState(() {
+        _latestCameraFrame = frameBytes;
       });
     });
 
@@ -313,19 +321,36 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   child: Stack(
                     children: [
-                      // Viewport Background
+                      // Viewport Background: Live Camera Stream + Radar Skeleton
                       Container(
                         width: double.infinity,
                         height: double.infinity,
-                        color: Colors.black.withOpacity(0.92),
+                        color: Colors.black.withOpacity(0.95),
                         child: _isPipelineActive
-                            ? CustomPaint(
-                                painter: HandSkeletonPainter(
-                                  landmarks: _handLandmarks,
-                                  gesture: _activeGesture,
-                                  primaryColor: scheme.primary,
-                                  secondaryColor: scheme.secondary,
-                                ),
+                            ? Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // Live Camera Feed Image
+                                  if (_latestCameraFrame != null)
+                                    Image.memory(
+                                      _latestCameraFrame!,
+                                      fit: BoxFit.cover,
+                                      gaplessPlayback: true,
+                                    ),
+                                  // Cyber Dimming layer for contrast
+                                  Container(
+                                    color: Colors.black.withOpacity(_latestCameraFrame != null ? 0.35 : 0.0),
+                                  ),
+                                  // Live Hand Skeleton & Radar CustomPaint
+                                  CustomPaint(
+                                    painter: HandSkeletonPainter(
+                                      landmarks: _handLandmarks,
+                                      gesture: _activeGesture,
+                                      primaryColor: scheme.primary,
+                                      secondaryColor: scheme.secondary,
+                                    ),
+                                  ),
+                                ],
                               )
                             : Center(
                                 child: Column(
@@ -516,6 +541,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _frameSubscription.cancel();
     _landmarksSubscription.cancel();
     _gestureSubscription.cancel();
     _rawGestureSubscription.cancel();
