@@ -71,7 +71,13 @@ class NetworkManager {
     }
   }
 
-  Future<void> sendPayload(String type, String content) async {
+  Future<void> sendPayload(
+    String type,
+    String content, {
+    String? fileName,
+    String? mimeType,
+    int? fileSize,
+  }) async {
     if (!_isConnected || _channel == null) {
       print("WebSocket not connected");
       return;
@@ -80,11 +86,14 @@ class NetworkManager {
     final payload = {
       'type': type,
       'content': content,
+      'fileName': fileName,
+      'mimeType': mimeType,
+      'fileSize': fileSize,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     };
     
     _channel?.sink.add(jsonEncode(payload));
-    print("Payload sent: $type");
+    print("Payload sent: $type ${fileName != null ? '($fileName)' : ''}");
   }
 
   void dispose() {

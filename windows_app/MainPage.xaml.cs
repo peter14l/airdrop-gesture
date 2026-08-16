@@ -311,6 +311,30 @@ namespace windows_app
                 LogScrollViewer.ChangeView(null, LogScrollViewer.ScrollableHeight, null);
             });
         }
+
+        private void OpenFolderButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            OpenAirDropFolder();
+        }
+
+        public static void OpenAirDropFolder()
+        {
+            try
+            {
+                var folder = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    "Downloads",
+                    "AirDrop"
+                );
+                System.IO.Directory.CreateDirectory(folder);
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = folder,
+                    UseShellExecute = true
+                });
+            }
+            catch { }
+        }
     }
 
     // Interop helper interface for raw buffer memory access

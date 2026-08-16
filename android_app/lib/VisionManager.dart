@@ -49,17 +49,20 @@ class VisionManager {
     }
   }
 
-  static Future<void> sendFrame(Uint8List bytes, int width, int height) async {
-    if (!_isActive) return;
+  static Future<bool> checkOverlayPermission() async {
     try {
-      await _channel.invokeMethod('processFrame', {
-        'bytes': bytes,
-        'width': width,
-        'height': height,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      });
-    } on PlatformException catch (e) {
-      print("Error sending frame: ${e.message}");
+      final bool hasPerm = await _channel.invokeMethod('checkOverlayPermission');
+      return hasPerm;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<void> requestOverlayPermission() async {
+    try {
+      await _channel.invokeMethod('requestOverlayPermission');
+    } catch (e) {
+      print("Failed to request overlay permission: $e");
     }
   }
 }

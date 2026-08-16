@@ -51,6 +51,24 @@ class MainActivity : FlutterActivity(), SensorEventListener {
                     stopVisionPipeline()
                     result.success(true)
                 }
+                "checkOverlayPermission" -> {
+                    val hasOverlay = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        android.provider.Settings.canDrawOverlays(this)
+                    } else {
+                        true
+                    }
+                    result.success(hasOverlay)
+                }
+                "requestOverlayPermission" -> {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        val intent = android.content.Intent(
+                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:$packageName")
+                        )
+                        startActivity(intent)
+                    }
+                    result.success(true)
+                }
                 "processFrame" -> {
                     // Frames are now fed by CameraX directly; this path is a no-op
                     result.success(true)

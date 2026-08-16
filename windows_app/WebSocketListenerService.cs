@@ -220,15 +220,59 @@ namespace windows_app
             {
                 using var doc = JsonDocument.Parse(jsonString);
                 var root = doc.RootElement;
-                var type = root.GetProperty("type").GetString();
-                var content = root.GetProperty("content").GetString();
+                var type = root.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : "text";
+                var content = root.TryGetProperty("content", out var contentProp) ? contentProp.GetString() : "";
+                var fileName = root.TryGetProperty("fileName", out var nameProp) ? nameProp.GetString() : null;
 
-                _onLogReceived($"Received payload type [{type}]: {content}");
+                _onLogReceived($"Received payload [{type}] {(fileName != null ? $"File: {fileName}" : "")}");
 
                 if (type == "text" && !string.IsNullOrEmpty(content))
                 {
                     LastReceivedPayload = content;
-                    _onLogReceived("Payload cached! Open your palm in front of the laptop camera to paste it.");
+                    // Auto-sync text to clipboard immediately
+                    App.MainWindowInstance?.DispatcherQueue.TryEnqueue(() =>
+                    {
+                        try
+                        {
+                            var dataPackage = new DataPackage();
+                            dataPackage.SetText(content);
+                            Clipboard.SetContent(dataPackage);
+                            Clipboard.Flush();
+                            _onLogReceived($"[Air-Drop] Auto-synced text to Windows clipboard: \"{content}\"");
+                            ShowToastNotification("AirDrop: Text Received", content.Length > 60 ? content.Substring(0, 60) + "..." : content);
+                        }
+                        catch (Exception ex)
+                        {
+                            _onLogReceived($"Clipboard sync error: {ex.Message}");
+                        }
+                    });
+                }
+                else if ((type == "file" || type == "image") && !string.IsNullOrEmpty(content))
+                {
+                    try
+                    {
+                        var bytes = Convert.FromBase64String(content);
+                        var airdropFolder = Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                            "Downloads",
+                            "AirDrop"
+                        );
+
+                        Directory.CreateDirectory(airdropFolder);
+                        var targetFileName = string.IsNullOrWhiteSpace(fileName) 
+                            ? $"airdrop_{DateTime.Now:yyyyMMdd_HHmmss}.{(type == "image" ? "png" : "dat")}" 
+                            : fileName;
+                        
+                        var targetPath = Path.Combine(airdropFolder, targetFileName);
+                        File.WriteAllBytes(targetPath, bytes);
+
+                        _onLogReceived($"[Air-Drop] File saved successfully: {targetPath}");
+                        ShowToastNotification("AirDrop: File Received", $"Saved {targetFileName} to Downloads\\AirDrop");
+                    }
+                    catch (Exception ex)
+                    {
+                        _onLogReceived($"Error writing dropped file: {ex.Message}");
+                    }
                 }
             }
             catch (Exception ex)

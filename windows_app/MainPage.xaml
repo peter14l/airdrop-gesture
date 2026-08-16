@@ -37,6 +37,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="Zero-Config Auto-Pairing Active" FontWeight="SemiBold" />
                     <TextBlock Text="Discovery service broadcasts local IP via mDNS. Connect from the Android app to synchronize clipboards instantly." TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+                    <Button Content="Open AirDrop Downloads Folder" Click="OpenFolderButton_Click" Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
 
