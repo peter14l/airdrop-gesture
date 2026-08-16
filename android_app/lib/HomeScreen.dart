@@ -80,6 +80,9 @@ class _HomeScreenState extends State<HomeScreen> {
         _processSharedFile(filePath);
       }
     });
+
+    // Auto-arm camera pipeline on launch
+    _toggleVisionPipeline();
   }
 
   Future<void> _processSharedFile(String filePath) async {

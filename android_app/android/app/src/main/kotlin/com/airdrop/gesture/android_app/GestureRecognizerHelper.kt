@@ -97,7 +97,11 @@ class GestureRecognizerHelper(
             try {
                 cameraProvider = cameraProviderFuture.get()
 
-                val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+                var cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+                if (cameraProvider?.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) != true) {
+                    Log.w(TAG, "Front camera not found, falling back to back camera.")
+                    cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                }
 
                 imageAnalysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -115,7 +119,7 @@ class GestureRecognizerHelper(
                     cameraSelector,
                     imageAnalysis
                 )
-                Log.d(TAG, "CameraX started and bound to activity lifecycle.")
+                Log.d(TAG, "CameraX successfully started and bound to activity lifecycle.")
             } catch (e: Exception) {
                 Log.e(TAG, "CameraX startup failed: ${e.message}", e)
             }
