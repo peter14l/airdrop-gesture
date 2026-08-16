@@ -77,22 +77,74 @@ class NetworkManager {
     String? fileName,
     String? mimeType,
     int? fileSize,
+    void Function(double progress, String status)? onProgress,
   }) async {
     if (!_isConnected || _channel == null) {
       print("WebSocket not connected");
       return;
     }
+
+    // For large files (> 64 KB), stream in chunks for high throughput & smooth progress animation
+    if ((type == "file" || type == "image") && content.length > 65536) {
+      final chunkSize = 65536; // 64 KB chunk size for fast socket dispatch
+      final totalChunks = (content.length / chunkSize).ceil();
+      final transferId = "xfer_${DateTime.now().millisecondsSinceEpoch}";
+
+      // Send start header
+      final initPayload = {
+        'type': 'transfer_start',
+        'transferId': transferId,
+        'payloadType': type,
+        'fileName': fileName,
+        'mimeType': mimeType,
+        'totalSize': content.length,
+        'totalChunks': totalChunks,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+      _channel?.sink.add(jsonEncode(initPayload));
+
+      for (int i = 0; i < totalChunks; i++) {
+        final start = i * chunkSize;
+        final end = (start + chunkSize < content.length) ? start + chunkSize : content.length;
+        final chunkData = content.substring(start, end);
+
+        final chunkPayload = {
+          'type': 'transfer_chunk',
+          'transferId': transferId,
+          'chunkIndex': i,
+          'data': chunkData,
+        };
+        _channel?.sink.add(jsonEncode(chunkPayload));
+
+        final progress = (i + 1) / totalChunks;
+        onProgress?.call(progress, "Streaming: ${(progress * 100).toStringAsFixed(0)}%");
+        // Small yield so UI event loop stays butter smooth
+        if (i % 4 == 0) await Future.delayed(const Duration(milliseconds: 1));
+      }
+
+      // Send complete header
+      final completePayload = {
+        'type': 'transfer_complete',
+        'transferId': transferId,
+      };
+      _channel?.sink.add(jsonEncode(completePayload));
+      onProgress?.call(1.0, "Transferred successfully!");
+    } else {
+      // Small payload or direct text
+      onProgress?.call(0.5, "Sending...");
+      final payload = {
+        'type': type,
+        'content': content,
+        'fileName': fileName,
+        'mimeType': mimeType,
+        'fileSize': fileSize,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+      
+      _channel?.sink.add(jsonEncode(payload));
+      onProgress?.call(1.0, "Dropped to Windows PC!");
+    }
     
-    final payload = {
-      'type': type,
-      'content': content,
-      'fileName': fileName,
-      'mimeType': mimeType,
-      'fileSize': fileSize,
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-    };
-    
-    _channel?.sink.add(jsonEncode(payload));
     print("Payload sent: $type ${fileName != null ? '($fileName)' : ''}");
   }
 

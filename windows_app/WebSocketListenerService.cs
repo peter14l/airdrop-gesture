@@ -214,6 +214,8 @@ namespace windows_app
             });
         }
 
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string Type, string? FileName, StringBuilder Builder, int TotalChunks)> _activeTransfers = new();
+
         private void ProcessPayload(string jsonString)
         {
             try
@@ -221,10 +223,55 @@ namespace windows_app
                 using var doc = JsonDocument.Parse(jsonString);
                 var root = doc.RootElement;
                 var type = root.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : "text";
-                var content = root.TryGetProperty("content", out var contentProp) ? contentProp.GetString() : "";
-                var fileName = root.TryGetProperty("fileName", out var nameProp) ? nameProp.GetString() : null;
 
-                _onLogReceived($"Received payload [{type}] {(fileName != null ? $"File: {fileName}" : "")}");
+                // Chunked transfer start
+                if (type == "transfer_start")
+                {
+                    var transferId = root.GetProperty("transferId").GetString()!;
+                    var payloadType = root.GetProperty("payloadType").GetString()!;
+                    var fileName = root.TryGetProperty("fileName", out var nameProp) ? nameProp.GetString() : null;
+                    var totalChunks = root.GetProperty("totalChunks").GetInt32();
+
+                    _activeTransfers[transferId] = (payloadType, fileName, new StringBuilder(), totalChunks);
+                    _onLogReceived($"[High-Speed Transfer] Incoming {payloadType} {fileName} ({totalChunks} chunks)...");
+                    return;
+                }
+
+                // Chunked transfer chunk
+                if (type == "transfer_chunk")
+                {
+                    var transferId = root.GetProperty("transferId").GetString()!;
+                    var chunkIndex = root.GetProperty("chunkIndex").GetInt32();
+                    var chunkData = root.GetProperty("data").GetString()!;
+
+                    if (_activeTransfers.TryGetValue(transferId, out var transfer))
+                    {
+                        transfer.Builder.Append(chunkData);
+                        if (chunkIndex % 10 == 0 || chunkIndex == transfer.TotalChunks - 1)
+                        {
+                            var pct = ((chunkIndex + 1) * 100.0 / transfer.TotalChunks).ToString("0");
+                            _onLogReceived($"[Streaming] {transfer.FileName ?? "File"}: {pct}%");
+                        }
+                    }
+                    return;
+                }
+
+                // Chunked transfer complete
+                if (type == "transfer_complete")
+                {
+                    var transferId = root.GetProperty("transferId").GetString()!;
+                    if (_activeTransfers.TryRemove(transferId, out var transfer))
+                    {
+                        var completeBase64 = transfer.Builder.ToString();
+                        SaveDroppedFile(transfer.Type, transfer.FileName, completeBase64);
+                    }
+                    return;
+                }
+
+                var content = root.TryGetProperty("content", out var contentProp) ? contentProp.GetString() : "";
+                var singleFileName = root.TryGetProperty("fileName", out var sNameProp) ? sNameProp.GetString() : null;
+
+                _onLogReceived($"Received payload [{type}] {(singleFileName != null ? $"File: {singleFileName}" : "")}");
 
                 if (type == "text" && !string.IsNullOrEmpty(content))
                 {
@@ -249,35 +296,40 @@ namespace windows_app
                 }
                 else if ((type == "file" || type == "image") && !string.IsNullOrEmpty(content))
                 {
-                    try
-                    {
-                        var bytes = Convert.FromBase64String(content);
-                        var airdropFolder = Path.Combine(
-                            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                            "Downloads",
-                            "AirDrop"
-                        );
-
-                        Directory.CreateDirectory(airdropFolder);
-                        var targetFileName = string.IsNullOrWhiteSpace(fileName) 
-                            ? $"airdrop_{DateTime.Now:yyyyMMdd_HHmmss}.{(type == "image" ? "png" : "dat")}" 
-                            : fileName;
-                        
-                        var targetPath = Path.Combine(airdropFolder, targetFileName);
-                        File.WriteAllBytes(targetPath, bytes);
-
-                        _onLogReceived($"[Air-Drop] File saved successfully: {targetPath}");
-                        ShowToastNotification("AirDrop: File Received", $"Saved {targetFileName} to Downloads\\AirDrop");
-                    }
-                    catch (Exception ex)
-                    {
-                        _onLogReceived($"Error writing dropped file: {ex.Message}");
-                    }
+                    SaveDroppedFile(type, singleFileName, content);
                 }
             }
             catch (Exception ex)
             {
                 _onLogReceived($"Error processing payload JSON: {ex.Message}");
+            }
+        }
+
+        private void SaveDroppedFile(string type, string? fileName, string base64Content)
+        {
+            try
+            {
+                var bytes = Convert.FromBase64String(base64Content);
+                var airdropFolder = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    "Downloads",
+                    "AirDrop"
+                );
+
+                Directory.CreateDirectory(airdropFolder);
+                var targetFileName = string.IsNullOrWhiteSpace(fileName) 
+                    ? $"airdrop_{DateTime.Now:yyyyMMdd_HHmmss}.{(type == "image" ? "png" : "dat")}" 
+                    : fileName;
+                
+                var targetPath = Path.Combine(airdropFolder, targetFileName);
+                File.WriteAllBytes(targetPath, bytes);
+
+                _onLogReceived($"[Air-Drop] High-Speed File Saved: {targetPath} ({(bytes.Length / 1024.0 / 1024.0):F2} MB)");
+                ShowToastNotification("AirDrop: File Received", $"Saved {targetFileName} ({(bytes.Length / 1024.0 / 1024.0):F2} MB) to Downloads\\AirDrop");
+            }
+            catch (Exception ex)
+            {
+                _onLogReceived($"Error writing dropped file: {ex.Message}");
             }
         }
 

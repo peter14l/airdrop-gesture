@@ -133,6 +133,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // Transfer Progress & Animation State
+  bool _isTransferring = false;
+  double _transferProgress = 0.0;
+  String _transferStatusText = "";
+
   Future<void> _handleGestureAction(String gesture) async {
     if (gesture == 'TRIGGER_GRAB') {
       // If a file is already queued by user, keep it; otherwise grab real OS clipboard
@@ -164,20 +169,53 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } else if (gesture == 'TRIGGER_DROP') {
+      if (_isTransferring) return;
+
       if (_payloadType == "text" && _clipboardPayload.isNotEmpty) {
-        await _networkManager.sendPayload("text", _clipboardPayload);
         setState(() {
+          _isTransferring = true;
+          _transferProgress = 0.3;
+          _transferStatusText = "Beaming text...";
+        });
+
+        await _networkManager.sendPayload(
+          "text",
+          _clipboardPayload,
+          onProgress: (p, msg) {
+            setState(() {
+              _transferProgress = p;
+              _transferStatusText = msg;
+            });
+          },
+        );
+
+        setState(() {
+          _isTransferring = false;
           _statusMessage = "Text dropped & synced to Windows clipboard!";
           _clipboardPayload = "";
         });
       } else if ((_payloadType == "file" || _payloadType == "image") && _base64FileContent != null) {
+        setState(() {
+          _isTransferring = true;
+          _transferProgress = 0.05;
+          _transferStatusText = "Initiating High-Speed Transfer...";
+        });
+
         await _networkManager.sendPayload(
           _payloadType,
           _base64FileContent!,
           fileName: _selectedFileName,
           fileSize: _selectedFileSize,
+          onProgress: (p, msg) {
+            setState(() {
+              _transferProgress = p;
+              _transferStatusText = msg;
+            });
+          },
         );
+
         setState(() {
+          _isTransferring = false;
           _statusMessage = "Dropped $_selectedFileName to Windows Downloads/AirDrop!";
           _clipboardPayload = "";
           _base64FileContent = null;
@@ -316,6 +354,57 @@ class _HomeScreenState extends State<HomeScreen> {
                                     style: TextStyle(color: scheme.onPrimaryContainer, fontSize: 13, fontWeight: FontWeight.w600),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        ],
+
+                        // Live Transfer Animation & Progress Bar
+                        if (_isTransferring) ...[
+                          const SizedBox(height: 24),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: scheme.secondaryContainer.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: scheme.secondary, width: 1.5),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          _transferStatusText,
+                                          style: TextStyle(fontWeight: FontWeight.bold, color: scheme.onSecondaryContainer, fontSize: 13),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      "${(_transferProgress * 100).toStringAsFixed(0)}%",
+                                      style: TextStyle(fontWeight: FontWeight.w900, color: scheme.secondary, fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: LinearProgressIndicator(
+                                    value: _transferProgress,
+                                    minHeight: 8,
+                                    backgroundColor: scheme.surfaceContainerHighest,
+                                    valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
                                   ),
                                 ),
                               ],

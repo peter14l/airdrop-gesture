@@ -56,12 +56,15 @@ To build an open-source, zero-config, cross-device file & clipboard sharing suit
 | **Android** | Real OS Clipboard & Grab Trigger | ✅ Completed | Hooked Flutter `Clipboard.getData` on `Closed_Fist` |
 | **Android** | File & Photo Picker Integration | ✅ Completed | `file_picker` integration for queuing photos/files for Air-Drop |
 | **Android** | System-Wide Share Sheet Integration | ✅ Completed | `receive_sharing_intent` + AndroidManifest `ACTION_SEND` filters |
+| **Android** | Live Transfer Progress & Animation | ✅ Completed | Real-time progress bar + beaming indicator during Air-Drop |
 | **Networking** | mDNS Discovery & WebSocket Client | ✅ Completed | Auto-discovers and connects without manual IP |
+| **Networking** | High-Speed 64KB Chunked Binary Streaming | ✅ Completed | Multi-part WebSocket chunking for massive file transfers |
 | **Networking** | Multi-type Payload Protocol (Text/Image/File) | ✅ Completed | JSON schema with base64 payload & metadata support |
 | **Windows** | WinUI 3 App Shell & Mica Backdrop | ✅ Completed | Packaged MSIX with tray icon |
 | **Windows** | WebSocket Listener & mDNS Advertiser | ✅ Completed | HttpListener with fallback to localhost |
 | **Windows** | Real Clipboard Auto-Sync & Notifications | ✅ Completed | Direct `Clipboard.SetContent` + Windows 11 Toast notifications |
 | **Windows** | Auto-save Dropped Files to Storage | ✅ Completed | Writes incoming files/images to `%USERPROFILE%\Downloads\AirDrop` with UI direct open |
+| **Windows** | High-Speed Stream Reassembly Engine | ✅ Completed | Asynchronous multi-chunk buffer assembly with throughput logging |
 | **Windows** | Webcam Drop Sensor | ✅ Completed | Unsafe luminance detector with custom drop gesture |
 | **CI/CD** | GitHub Actions Workflow for Release | ✅ Completed | Builds APK & MSIX, publishes signed release |
 
