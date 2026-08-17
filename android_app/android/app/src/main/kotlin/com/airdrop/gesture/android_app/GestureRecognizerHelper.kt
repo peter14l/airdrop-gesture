@@ -127,10 +127,10 @@ class GestureRecognizerHelper(
     }
 
     private var lastFrameTime = 0L
-    private val frameStreamIntervalMs = 40L // ~25 FPS live preview stream
+    private val frameStreamIntervalMs = 33L // ~30 FPS live preview stream
 
     private fun processImageProxy(imageProxy: ImageProxy) {
-        if (!isRunning || gestureRecognizer == null) {
+        if (!isRunning) {
             imageProxy.close()
             return
         }
@@ -138,7 +138,7 @@ class GestureRecognizerHelper(
             val bitmap = imageProxy.toBitmap()
             val rotationDegrees = imageProxy.imageInfo.rotationDegrees
 
-            // Rotate bitmap according to camera sensor orientation (crucial for MediaPipe hand pose)
+            // Rotate bitmap according to camera sensor orientation
             val matrix = android.graphics.Matrix()
             matrix.postRotate(rotationDegrees.toFloat())
             // Mirror horizontally since it's the front-facing camera
@@ -148,20 +148,26 @@ class GestureRecognizerHelper(
                 bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
             )
 
-            // Feed MediaPipe
-            val mpImage = BitmapImageBuilder(rotatedBitmap).build()
-            val timestampMs = imageProxy.imageInfo.timestamp / 1_000_000
-            gestureRecognizer?.recognizeAsync(mpImage, timestampMs)
-
-            // Stream live camera preview frame to Flutter UI at ~25 FPS
+            // 1. ALWAYS Stream live camera preview frame to Flutter UI independently of MediaPipe
             val now = System.currentTimeMillis()
             if (now - lastFrameTime >= frameStreamIntervalMs) {
                 lastFrameTime = now
                 val scaled = android.graphics.Bitmap.createScaledBitmap(rotatedBitmap, 360, (360f * rotatedBitmap.height / rotatedBitmap.width).toInt(), false)
                 val out = java.io.ByteArrayOutputStream()
-                scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 60, out)
+                scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 65, out)
                 val jpegBytes = out.toByteArray()
                 emitCameraFrame(jpegBytes)
+            }
+
+            // 2. Feed MediaPipe if initialized
+            if (gestureRecognizer != null) {
+                try {
+                    val mpImage = BitmapImageBuilder(rotatedBitmap).build()
+                    val timestampMs = imageProxy.imageInfo.timestamp / 1_000_000
+                    gestureRecognizer?.recognizeAsync(mpImage, timestampMs)
+                } catch (mpEx: Exception) {
+                    Log.e(TAG, "MediaPipe recognition frame error: ${mpEx.message}")
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error processing frame: ${e.message}")

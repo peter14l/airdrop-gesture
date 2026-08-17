@@ -152,18 +152,19 @@ class MainActivity : FlutterActivity(), SensorEventListener {
     private fun startVisionPipeline() {
         gestureHelper?.start()
         registerSensors()
-        resetTimeoutTimer()
     }
 
     private fun stopVisionPipeline() {
         gestureHelper?.stop()
         unregisterSensors()
         autoKillHandler.removeCallbacks(autoKillRunnable)
+        runOnUiThread {
+            methodChannel?.invokeMethod("onPipelineStopped", null)
+        }
     }
 
     private fun resetTimeoutTimer() {
-        autoKillHandler.removeCallbacks(autoKillRunnable)
-        autoKillHandler.postDelayed(autoKillRunnable, 30_000) // Auto-kill after 30 seconds idle
+        // Keeps camera active while screen is in foreground
     }
 
     private fun registerSensors() {

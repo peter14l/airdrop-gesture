@@ -141,7 +141,17 @@ namespace windows_app
                 await _mediaCapture.InitializeAsync(settings);
                 AddLogMessage($"Initializing: {selectedGroup.DisplayName}");
 
-                // Find a suitable video preview source
+                // Bind hardware preview stream directly to MediaPlayerElement
+                var mediaSource = Windows.Media.Core.MediaSource.CreateFromMediaFrameSourceGroup(selectedGroup);
+                var mediaPlayer = new Windows.Media.Playback.MediaPlayer
+                {
+                    Source = mediaSource,
+                    AutoPlay = true,
+                    IsMuted = true
+                };
+                CameraPreviewPlayer.SetMediaPlayer(mediaPlayer);
+
+                // Find a suitable video preview source for real-time background gesture processing
                 var sourceInfo = selectedGroup.SourceInfos.FirstOrDefault(s => s.MediaStreamType == MediaStreamType.VideoPreview) 
                                  ?? selectedGroup.SourceInfos.FirstOrDefault(s => s.MediaStreamType == MediaStreamType.VideoRecord)
                                  ?? selectedGroup.SourceInfos.FirstOrDefault();
@@ -153,15 +163,13 @@ namespace windows_app
                     _frameReader.FrameArrived += OnFrameArrived;
                     var status = await _frameReader.StartAsync();
 
-                    if (status == MediaFrameReaderStartStatus.Success)
-                    {
-                        CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-                        AddLogMessage($"Active Camera Source: {selectedGroup.DisplayName} (Streaming Live)");
-                    }
-                    else
-                    {
-                        AddLogMessage($"FrameReader start status: {status}");
-                    }
+                    CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+                    AddLogMessage($"Active Camera Source: {selectedGroup.DisplayName} (Streaming Live)");
+                }
+                else
+                {
+                    CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+                    AddLogMessage($"Active Camera Source: {selectedGroup.DisplayName} (Direct Preview)");
                 }
             }
             catch (Exception ex)
