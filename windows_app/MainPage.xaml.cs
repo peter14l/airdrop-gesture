@@ -175,6 +175,7 @@ namespace windows_app
             }
         }
 
+        private WriteableBitmap? _writeableBitmap;
         private bool _isRenderingFrame = false;
 
         private void OnFrameArrived(MediaFrameReader sender, MediaFrameArrivedEventArgs args)
@@ -198,33 +199,38 @@ namespace windows_app
                     // Run the custom light-level structural detector to verify if a hand is covering the lens (Drop gesture)
                     ProcessGestureAnalysis(softwareBitmap);
 
-                    // Drop UI render frames if the previous frame hasn't completed to prevent thread starvation
+                    // Skip UI rendering if previous dispatch is still in flight
                     if (_isRenderingFrame)
                     {
+                        softwareBitmap.Dispose();
                         return;
                     }
                     _isRenderingFrame = true;
 
-                    // Clone the bitmap for safe asynchronous rendering on the UI thread
-                    var renderCopy = SoftwareBitmap.Copy(softwareBitmap);
+                    int width = softwareBitmap.PixelWidth;
+                    int height = softwareBitmap.PixelHeight;
 
-                    // Render preview to screen
-                    DispatcherQueue.TryEnqueue(async () =>
+                    // Copy bitmap to UI via WriteableBitmap
+                    DispatcherQueue.TryEnqueue(() =>
                     {
                         try
                         {
-                            if (_previewSource != null)
+                            if (_writeableBitmap == null || _writeableBitmap.PixelWidth != width || _writeableBitmap.PixelHeight != height)
                             {
-                                await _previewSource.SetBitmapAsync(renderCopy);
+                                _writeableBitmap = new WriteableBitmap(width, height);
+                                CameraPreviewImage.Source = _writeableBitmap;
                             }
+
+                            softwareBitmap.CopyToBuffer(_writeableBitmap.PixelBuffer);
+                            _writeableBitmap.Invalidate();
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // Ignore rendering errors on app close
+                            AddLogMessage($"Render error: {ex.Message}");
                         }
                         finally
                         {
-                            renderCopy.Dispose();
+                            softwareBitmap.Dispose();
                             _isRenderingFrame = false;
                         }
                     });
