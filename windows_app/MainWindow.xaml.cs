@@ -19,8 +19,8 @@ namespace windows_app
             RestoreCommand = new TrayCommand(() => ShowWindow());
             ExitCommand = new TrayCommand(() =>
             {
-                _service.Stop();
-                MyNotifyIcon.Dispose();
+                _service?.Stop();
+                MyNotifyIcon?.Dispose();
                 Application.Current.Exit();
             });
 

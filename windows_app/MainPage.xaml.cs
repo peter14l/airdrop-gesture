@@ -141,16 +141,6 @@ namespace windows_app
                 await _mediaCapture.InitializeAsync(settings);
                 AddLogMessage($"Initializing: {selectedGroup.DisplayName}");
 
-                // Bind hardware preview stream directly to MediaPlayerElement
-                var mediaSource = Windows.Media.Core.MediaSource.CreateFromMediaFrameSourceGroup(selectedGroup);
-                var mediaPlayer = new Windows.Media.Playback.MediaPlayer
-                {
-                    Source = mediaSource,
-                    AutoPlay = true,
-                    IsMuted = true
-                };
-                CameraPreviewPlayer.SetMediaPlayer(mediaPlayer);
-
                 // Find a suitable video preview source for real-time background gesture processing
                 var sourceInfo = selectedGroup.SourceInfos.FirstOrDefault(s => s.MediaStreamType == MediaStreamType.VideoPreview) 
                                  ?? selectedGroup.SourceInfos.FirstOrDefault(s => s.MediaStreamType == MediaStreamType.VideoRecord)
@@ -163,13 +153,15 @@ namespace windows_app
                     _frameReader.FrameArrived += OnFrameArrived;
                     var status = await _frameReader.StartAsync();
 
-                    CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-                    AddLogMessage($"Active Camera Source: {selectedGroup.DisplayName} (Streaming Live)");
-                }
-                else
-                {
-                    CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-                    AddLogMessage($"Active Camera Source: {selectedGroup.DisplayName} (Direct Preview)");
+                    if (status == MediaFrameReaderStartStatus.Success)
+                    {
+                        CameraFallbackPanel.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+                        AddLogMessage($"Active Camera Source: {selectedGroup.DisplayName} (Streaming Live)");
+                    }
+                    else
+                    {
+                        AddLogMessage($"FrameReader start status: {status}");
+                    }
                 }
             }
             catch (Exception ex)
@@ -182,6 +174,8 @@ namespace windows_app
                 _isInitializingCamera = false;
             }
         }
+
+        private bool _isRenderingFrame = false;
 
         private void OnFrameArrived(MediaFrameReader sender, MediaFrameArrivedEventArgs args)
         {
@@ -204,6 +198,13 @@ namespace windows_app
                     // Run the custom light-level structural detector to verify if a hand is covering the lens (Drop gesture)
                     ProcessGestureAnalysis(softwareBitmap);
 
+                    // Drop UI render frames if the previous frame hasn't completed to prevent thread starvation
+                    if (_isRenderingFrame)
+                    {
+                        return;
+                    }
+                    _isRenderingFrame = true;
+
                     // Clone the bitmap for safe asynchronous rendering on the UI thread
                     var renderCopy = SoftwareBitmap.Copy(softwareBitmap);
 
@@ -212,7 +213,10 @@ namespace windows_app
                     {
                         try
                         {
-                            await _previewSource!.SetBitmapAsync(renderCopy);
+                            if (_previewSource != null)
+                            {
+                                await _previewSource.SetBitmapAsync(renderCopy);
+                            }
                         }
                         catch
                         {
@@ -221,6 +225,7 @@ namespace windows_app
                         finally
                         {
                             renderCopy.Dispose();
+                            _isRenderingFrame = false;
                         }
                     });
                 }

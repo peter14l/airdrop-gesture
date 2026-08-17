@@ -77,8 +77,7 @@
                         <TextBlock Text="Camera Loading..." Style="{StaticResource BodyTextBlockStyle}" HorizontalAlignment="Center" />
                     </StackPanel>
                     
-                    <!-- Real Camera Live Preview Source (Direct Hardware Composition) -->
-                    <MediaPlayerElement x:Name="CameraPreviewPlayer" AutoPlay="True" Stretch="Uniform" />
+                    <!-- Real Camera Frame Source -->
                     <Image x:Name="CameraPreviewImage" Stretch="Uniform" />
                 </Grid>
             </Border>
